@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity 0.8.36;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -19,6 +19,7 @@ contract PeelbidEscrow is Ownable, Pausable, ReentrancyGuard {
     uint256 public constant MAX_TOTAL          = 5_000e6;
     uint64  public constant CHALLENGE_WINDOW   = 7 days;
     uint64  public constant APPLICATION_WINDOW = 14 days;
+    uint64  public constant PROOF_DEADLINE     = 14 days;
     uint16  public constant MAX_FEE_BPS        = 1_000;
     uint256 public constant MAX_TRANCHES       = 13;
     uint16  private constant BPS               = 10_000;
@@ -60,6 +61,7 @@ contract PeelbidEscrow is Ownable, Pausable, ReentrancyGuard {
     event ProofSubmitted(bytes32 indexed id, uint256 index, bytes32 proofHash);
     event TrancheReleased(bytes32 indexed id, uint256 index, uint256 toOwner, uint256 fee);
     event TrancheChallenged(bytes32 indexed id, uint256 index, address by);
+    event TrancheRefunded(bytes32 indexed id, uint256 index, uint256 toSponsor);
     event DisputeResolved(bytes32 indexed id, uint256 index, uint256 toOwner, uint256 toSponsor, uint256 fee);
     event CampaignTerminated(bytes32 indexed id, uint256 refundedToSponsor);
     event CampaignCompleted(bytes32 indexed id);
@@ -125,7 +127,6 @@ contract PeelbidEscrow is Ownable, Pausable, ReentrancyGuard {
         return c.total - c.paidOut - c.refunded;
     }
 
-    /// @notice The gross value of one tranche before fees.
     function trancheAmount(bytes32 id, uint256 index) public view returns (uint256) {
         if (index >= _tranches[id].length) revert BadTrancheIndex();
         return campaigns[id].total * _tranches[id][index].percentBps / BPS;
@@ -222,8 +223,7 @@ contract PeelbidEscrow is Ownable, Pausable, ReentrancyGuard {
 
     // ---------------- release and challenge ----------------
 
-    /// @notice Pay out a tranche whose challenge window has closed.
-    /// @dev Anyone may call. The owner's money must not depend on our server being up.
+    /// @notice Pay out a tranche whose challenge window has closed. Anyone may call.
     function release(bytes32 id, uint256 index) external nonReentrant whenNotPaused {
         Campaign storage c = campaigns[id];
         if (c.status != CampaignStatus.Funded) revert BadState();
@@ -240,7 +240,6 @@ contract PeelbidEscrow is Ownable, Pausable, ReentrancyGuard {
         t.status   = TrancheStatus.Released;
         c.paidOut += amount;
         totalEscrowed -= amount;
-
         _maybeComplete(id);
 
         TOKEN.safeTransfer(c.owner, toOwner);
@@ -263,10 +262,32 @@ contract PeelbidEscrow is Ownable, Pausable, ReentrancyGuard {
         emit TrancheChallenged(id, index, msg.sender);
     }
 
+    /// @notice Owner missed a checkpoint by more than PROOF_DEADLINE. Sponsor takes that tranche back.
+    /// @dev No arbiter needed. Index 0 is handled by reclaimUnapplied.
+    function reclaimMissedTranche(bytes32 id, uint256 index) external nonReentrant {
+        Campaign storage c = campaigns[id];
+        if (c.status != CampaignStatus.Funded) revert BadState();
+        if (msg.sender != c.sponsor) revert NotSponsor();
+        if (index == 0 || index >= _tranches[id].length) revert BadTrancheIndex();
+        if (c.appliedAt == 0) revert NotAppliedYet();
+
+        Tranche storage t = _tranches[id][index];
+        if (t.status != TrancheStatus.Pending) revert BadState();
+        if (block.timestamp <= dueAt(id, index) + PROOF_DEADLINE) revert TooEarly();
+
+        uint256 amount = trancheAmount(id, index);
+
+        t.status    = TrancheStatus.Refunded;
+        c.refunded += amount;
+        totalEscrowed -= amount;
+        _maybeComplete(id);
+
+        TOKEN.safeTransfer(c.sponsor, amount);
+        emit TrancheRefunded(id, index, amount);
+    }
+
     // ---------------- arbitration ----------------
 
-    /// @notice Arbiter splits a frozen tranche. ownerShareBps = 10_000 pays the owner in full.
-    /// @dev Our fee applies only to what the owner actually receives.
     function resolve(bytes32 id, uint256 index, uint16 ownerShareBps)
         external
         onlyArbiter
@@ -280,17 +301,16 @@ contract PeelbidEscrow is Ownable, Pausable, ReentrancyGuard {
         Tranche storage t = _tranches[id][index];
         if (t.status != TrancheStatus.Frozen) revert BadState();
 
-        uint256 amount       = trancheAmount(id, index);
-        uint256 ownerGross   = amount * ownerShareBps / BPS;
-        uint256 toSponsor    = amount - ownerGross;
-        uint256 fee          = ownerGross * c.feeBps / BPS;
-        uint256 toOwner      = ownerGross - fee;
+        uint256 amount     = trancheAmount(id, index);
+        uint256 ownerGross = amount * ownerShareBps / BPS;
+        uint256 toSponsor  = amount - ownerGross;
+        uint256 fee        = ownerGross * c.feeBps / BPS;
+        uint256 toOwner    = ownerGross - fee;
 
         t.status    = ownerShareBps == 0 ? TrancheStatus.Refunded : TrancheStatus.Released;
         c.paidOut  += ownerGross;
         c.refunded += toSponsor;
         totalEscrowed -= amount;
-
         _maybeComplete(id);
 
         if (toOwner > 0)   TOKEN.safeTransfer(c.owner, toOwner);
@@ -299,8 +319,6 @@ contract PeelbidEscrow is Ownable, Pausable, ReentrancyGuard {
         emit DisputeResolved(id, index, toOwner, toSponsor, fee);
     }
 
-    /// @notice Sticker was removed early. Everything not yet paid goes back to the sponsor.
-    /// @dev Tranches already released stay released — those months were served.
     function terminate(bytes32 id) external onlyArbiter nonReentrant {
         Campaign storage c = campaigns[id];
         if (c.status != CampaignStatus.Funded) revert BadState();
@@ -319,7 +337,6 @@ contract PeelbidEscrow is Ownable, Pausable, ReentrancyGuard {
         emit CampaignTerminated(id, refund);
     }
 
-    /// @notice Sticker never went on. Sponsor takes everything back. No arbiter needed.
     function reclaimUnapplied(bytes32 id) external nonReentrant {
         Campaign storage c = campaigns[id];
         if (c.status != CampaignStatus.Funded) revert BadState();

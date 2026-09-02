@@ -306,4 +306,49 @@ contract PeelbidEscrowTest is Test {
         vm.expectRevert(PeelbidEscrow.BadState.selector);
         escrow.release(ID, 3);
     }
+
+    // ---------------- missed checkpoint ----------------
+
+    function test_ReclaimMissedTrancheAfterDeadline() public {
+        _create(ID, TOTAL); _fund(ID); _apply(ID);
+        skip(7 days); escrow.release(ID, 0);
+
+        // tranche 1 due at day 30; owner goes silent
+        skip(23 days + 14 days + 1);
+
+        uint256 sponsorBefore = usdc.balanceOf(sponsor);
+        vm.prank(sponsor);
+        escrow.reclaimMissedTranche(ID, 1);
+
+        assertEq(usdc.balanceOf(sponsor), sponsorBefore + 82_500_000);
+        assertEq(uint8(escrow.tranche(ID, 1).status), uint8(PeelbidEscrow.TrancheStatus.Refunded));
+        assertEq(escrow.outstanding(ID), TOTAL - T0_GROSS - 82_500_000);
+    }
+
+    function test_ReclaimMissedTrancheRevertsBeforeDeadline() public {
+        _create(ID, TOTAL); _fund(ID); _apply(ID);
+        skip(30 days + 13 days);
+        vm.prank(sponsor);
+        vm.expectRevert(PeelbidEscrow.TooEarly.selector);
+        escrow.reclaimMissedTranche(ID, 1);
+    }
+
+    function test_ReclaimMissedTrancheRevertsIfProofSubmitted() public {
+        _create(ID, TOTAL); _fund(ID); _apply(ID);
+        skip(30 days);
+        vm.prank(carOwner);
+        escrow.submitProof(ID, 1, keccak256("p2"));
+        skip(20 days);
+        vm.prank(sponsor);
+        vm.expectRevert(PeelbidEscrow.BadState.selector);
+        escrow.reclaimMissedTranche(ID, 1);
+    }
+
+    function test_ReclaimMissedTrancheRevertsForIndexZero() public {
+        _create(ID, TOTAL); _fund(ID);
+        skip(60 days);
+        vm.prank(sponsor);
+        vm.expectRevert(PeelbidEscrow.BadTrancheIndex.selector);
+        escrow.reclaimMissedTranche(ID, 0);
+    }
 }

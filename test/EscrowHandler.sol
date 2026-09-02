@@ -92,4 +92,10 @@ contract EscrowHandler is Test {
     function warp(uint256 secs) external {
         skip(bound(secs, 1 hours, 40 days));
     }
+
+    function reclaimMissed(uint256 seed, uint256 idx) external {
+        if (ids.length == 0) return;
+        vm.prank(sponsor);
+        try escrow.reclaimMissedTranche(_pick(seed), idx % 4) {} catch {}
+    }
 }
