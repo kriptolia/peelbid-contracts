@@ -9,3 +9,9 @@ libs = ["lib"]
 runs = 256
 depth = 64
 fail_on_revert = false
+
+[rpc_endpoints]
+base_sepolia = "${BASE_SEPOLIA_RPC}"
+
+[etherscan]
+base_sepolia = { key = "${BASESCAN_API_KEY}", chain = 84532 }

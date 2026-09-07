@@ -290,8 +290,8 @@ contract PeelbidEscrow is Ownable, Pausable, ReentrancyGuard {
 
     function resolve(bytes32 id, uint256 index, uint16 ownerShareBps)
         external
-        onlyArbiter
         nonReentrant
+        onlyArbiter
     {
         Campaign storage c = campaigns[id];
         if (c.status != CampaignStatus.Funded) revert BadState();
@@ -319,7 +319,7 @@ contract PeelbidEscrow is Ownable, Pausable, ReentrancyGuard {
         emit DisputeResolved(id, index, toOwner, toSponsor, fee);
     }
 
-    function terminate(bytes32 id) external onlyArbiter nonReentrant {
+    function terminate(bytes32 id) external nonReentrant onlyArbiter {
         Campaign storage c = campaigns[id];
         if (c.status != CampaignStatus.Funded) revert BadState();
 
