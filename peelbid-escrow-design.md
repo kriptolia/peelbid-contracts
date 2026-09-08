@@ -1,6 +1,6 @@
 # peelbid — escrow and data model
 
-**Status:** live and verified on Base Sepolia, first campaign running · 7 September 2026
+**Status:** live on Base mainnet, Base Sepolia and Arc testnet · 8 September 2026
 **Purpose:** settle the mechanics on paper before any Solidity is written.
 
 ---
@@ -381,6 +381,53 @@ Handler drives nine actions in random order across 256 runs × 64 steps. After e
 2. `USDC balance >= totalEscrowed`
 3. `totalEscrowed == Σ outstanding(id)`
 4. `Σ total − Σ paidOut − Σ refunded == totalEscrowed`
+
+### Deployed — Base mainnet
+| | |
+|---|---|
+| Contract | `0xf78257D41C8e78dD19e941146B58ebe9f9726635` |
+| Chain | Base (8453) |
+| Deploy tx | `0xb5dd908cc4c76f750781f2512dc1f2972e99b412f84d0522b8eaa4a6a27a40a7` |
+| Block | 51038762 · 8 Sep 2026 |
+| USDC | `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913` |
+| Arbiter / fee recipient | `0xc2C9F41778Dda1dd38C6D0b08eC730D675c7bA2C` (Safe) |
+| Owner | Same Safe — ownership transferred immediately after deploy |
+| Source | Verified on Basescan |
+| Cost | 0.000023 ETH |
+
+Deployed from a fresh wallet used for nothing else, then handed to the Safe. The deployer key has no authority over the contract. No campaign has been funded yet — that waits until `release()` has been proven end to end on testnet.
+
+### Deployed — Arc testnet
+| | |
+|---|---|
+| Contract | `0xFE9b1D63552FE9566178E4d6dcd86A2222b52227` |
+| Chain | Arc testnet (5042002) |
+| USDC (ERC-20) | `0x3600000000000000000000000000000000000000` |
+| Source | Verified |
+| Cost | 20.95 USDC |
+
+Full campaign run through funding and first proof. Same bytecode as Base; the only change was one address in the environment.
+
+### Arc: what testnet taught us
+
+**USDC has two faces.** Native is 18 decimals, the ERC-20 interface is 6 — the same balance, two views. The contract only touches the ERC-20 interface, so `500e6` still means 500 USDC. Confirmed on-chain: the escrow read `5000000` via `balanceOf` and `5000000000000000000` via `cast balance` for the same 5 USDC.
+
+**Funding emits two Transfer logs.** One from the EIP-7708 system emitter at `0xffff…fffe` (18 decimals), one from the ERC-20 contract (6 decimals), for a single movement. Any indexer must filter by emitter or it will double-count. This matters for the proof feed and the campaign page.
+
+**No `receive()` needed.** `safeTransferFrom` into the escrow works unchanged despite USDC being the native asset.
+
+**Gas is real money, and it moves.** Observed prices swung between roughly 2,800 and 16,000 gwei within a few hours:
+
+| Action | Gas | Cost at ~3,500 gwei |
+|---|---|---|
+| `createCampaign` | 255,819 | 1.03 USDC |
+| `fund` | 91,491 | 0.30 USDC |
+| `submitProof` | 67,689 | 0.28 USDC |
+| `release` (est.) | ~100,000 | ~0.35 USDC |
+
+Our own cost per campaign — one `createCampaign` plus four `release` calls — is roughly **2.43 USDC**. On a 50 USDC campaign the 8% fee is 4 USDC, so gas eats 60% of revenue. On Base the same work costs fractions of a cent.
+
+Two consequences to decide before Arc mainnet: raise the panel floor on Arc (75–100 USDC rather than 50), or have owners pay their own `release` gas with the keeper as a fallback rather than the default.
 
 ### Deployed — Base Sepolia
 | | |
