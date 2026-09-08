@@ -48,3 +48,18 @@ Then: keeper bot, listing builder, proof feed.
 Function → test → forge test. Test refusals, not just happy paths.
 Author is new to Solidity — explain what the code does and why.
 Never write a private key into any file in this repo.
+
+## Deployed addresses
+Base Sepolia: 0x88064FC8D03f8745Fd131CFc2D902Bc1e2502A77 (verified)
+  campaign 0x78bddf0d916c8835f47bf744c3a34936fd702cdc33f675af3a9c6015a9d41bf8
+  release tranche 0 after 14 Sep 16:24 UTC
+
+Arc testnet (5042002): 0xFE9b1D63552FE9566178E4d6dcd86A2222b52227 (verified)
+  campaign 0x274ce143d54175cb2c43e2ee7c375d7bad1ea763e37728749cf445f118fbf246
+  USDC ERC-20 at 0x3600000000000000000000000000000000000000, 6 decimals
+  Native USDC is 18 decimals — same balance, two views. Don't mix them.
+  Gas is real: createCampaign ~1.03 USDC, fund ~0.30, submitProof ~0.28.
+  Our cost per campaign ≈ 2.43 USDC. Affects floor pricing on Arc.
+
+Safe for mainnet arbiter/feeRecipient: 0xc2C9F41778Dda1dd38C6D0b08eC730D675c7bA2C
+  Not yet activated on any chain. Activate on Arc mainnet before deploy.
