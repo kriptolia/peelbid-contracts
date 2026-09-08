@@ -41,6 +41,28 @@ First live campaign running:
 Next: release tranche 0 on 14 Sep, Arc testnet, Arc mainnet 16 Sep.
 Then: keeper bot, listing builder, proof feed.
 
+## Peels (waitlist points) — see design doc §12
+In-house on Vercel serverless + Supabase, deliberately not on Zealy/Galxe.
++25 email, +10 X handle (unverified on purpose), +50 per referral.
+Biggest allocation reserved for approved real listings — that's the anti-farm.
+Reward is stated upfront: early access, Founding Lister perks, and a share of
+protocol fees in USDC (~10% year one, % not yet public).
+No token promised, none denied. Both would be wrong.
+Lawyer must review the fee share before the first payout.
+
+## Site
+peelbid.com is one page. Waitlist and Peels stay; a "What we're building"
+section shows six capabilities with honest status chips (five in build/soon,
+escrow live); a "The escrow, live" section reads the contract directly via
+ethers and renders the running campaign. No backend, no database.
+Do NOT split this into separate pages — the site is the product to a
+visitor, the contract is plumbing nobody asks to see.
+
+Known: ad blockers block rpc.testnet.arc.io (arc.io is on filter lists from
+its previous owner). All Circle RPCs are *.arc.io subdomains, so there's no
+client-side fix. The page detects it and says so. Check whether Arc mainnet
+uses the same domain.
+
 ## Things that are NOT done
 - No keeper bot. Contracts don't self-execute; a due tranche sits unpaid
   until someone calls release(). Permissionless by design, but users need

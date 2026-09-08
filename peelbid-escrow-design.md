@@ -1,6 +1,6 @@
 # peelbid — escrow and data model
 
-**Status:** live on Base mainnet, Base Sepolia and Arc testnet · 8 September 2026
+**Status:** live on Base mainnet, Base Sepolia and Arc testnet · site reads the chain directly · 8 September 2026
 **Purpose:** settle the mechanics on paper before any Solidity is written.
 
 ---
@@ -416,6 +416,8 @@ Full campaign run through funding and first proof. Same bytecode as Base; the on
 
 **No `receive()` needed.** `safeTransferFrom` into the escrow works unchanged despite USDC being the native asset.
 
+**Ad blockers break Arc in the browser.** Requests to `rpc.testnet.arc.io` fail with `ERR_BLOCKED_BY_CLIENT` for anyone running a common blocker — `arc.io` sat on filter lists from a previous owner (a P2P CDN) and the lists haven't caught up. Every alternate RPC Circle publishes is an `*.arc.io` subdomain, so there is no way around it from the client side. The site detects this specific failure and explains it rather than showing a generic error. **Worth watching before mainnet:** if the mainnet RPC uses the same domain, every browser-side read is affected, and any frontend on Arc has the same problem.
+
 **Gas is real money, and it moves.** Observed prices swung between roughly 2,800 and 16,000 gwei within a few hours:
 
 | Action | Gas | Cost at ~3,500 gwei |
@@ -464,7 +466,11 @@ In production this needs three layers:
 
 The same applies to `reclaimUnapplied` and `reclaimMissedTranche` — the sponsor triggers their own refund.
 
+### Repo
+`README.md` documents the campaign lifecycle, the design decisions and their reasons, and the deploy procedure. `.env.example` carries the USDC address for each network with a note to re-verify against Circle before any mainnet deploy. The repo stays private until launch; the deployed source is verified on all three explorers regardless.
+
 ### Before mainnet
+- **Confirm Arc mainnet's USDC address.** Circle's docs currently state that only testnet addresses are published. `0x3600…0000` is a system predeploy and will probably carry over, but it is immutable once in the constructor — check it on the morning of the 16th.
 - Watch the first campaign through a full tranche release (14 Sep)
 - Keeper bot (not required for correctness, required for usability)
 - Arbiter and fee recipient must be a Safe multisig on mainnet, not an EOA
@@ -474,38 +480,68 @@ The same applies to `reclaimUnapplied` and `reclaimMissedTranche` — the sponso
 
 ## 10. Decisions still open
 
-1. **Auction length** — owner-set, or fixed at 21 days? Owner-set is more flexible; fixed is easier to explain and to market.
-2. **Freshness token** — sponsor-chosen or system-generated?
-3. **Multi-panel bidding** — can one sponsor take five panels on one object at once, or is that five separate auctions? Defaulting to separate.
-4. **Chain** — Base first, Arc after its mainnet opens. The contract stays chain-agnostic EVM so the second one is a deploy, not a rewrite.
+1. **Multi-panel bidding** — can one sponsor take five panels on one object at once, or is that five separate auctions? Defaulting to separate.
+2. **Fee-share percentage for Peels** — 10% of year-one protocol fees is the working proposal, not yet committed publicly. See §12.
+3. **Floor price on Arc** — 50 USDC works on Base where gas is negligible. On Arc, where our own gas runs ~2.43 USDC per campaign, a 50 USDC campaign gives up 60% of the fee. Either raise the Arc floor to 75–100 USDC or move release gas onto the owner.
 
-Resolved since the first draft: artwork rejection (artwork now arrives with the bid), auction length (owner-set), freshness token (system-generated).
+Resolved since the first draft: artwork rejection (artwork now arrives with the bid), auction length (owner-set), freshness token (system-generated), chain order (both — same bytecode, Base mainnet and Arc from launch day).
 
 ---
 
 ## 11. Rollout phases
 
-No audit budget yet. Exposure is therefore capped by *what the contract is allowed to hold*, not by hoping the code is correct. Each phase has an explicit exit condition.
+No audit budget. Exposure is capped by *what the contract is allowed to hold*, not by hoping the code is correct.
 
-### Phase 0 — Safe multisig, no custom code
-First campaigns run through a per-campaign **Safe** with three signers (owner, sponsor, peelbid) and a 2-of-3 threshold. Tranches are released manually.
+### Phase 0 — Safe multisig, manual release — **skipped**
+The original plan was to run the first 10–15 campaigns through a per-campaign Safe with no bespoke code, learning what the contract needed before writing it.
 
-Nothing bespoke to audit; Safe is the most reviewed contract in the ecosystem. The escrow logic is identical — owner and sponsor agreeing moves the money, and peelbid's key only matters when they disagree. Every manual campaign also teaches us what the contract actually needs, which is worth more than starting from guesses.
+We skipped it. The contract was finished, tested and deployed in roughly a week — faster than the manual phase would have taken — so the reason for the detour disappeared. The learning it was meant to provide now has to come from the first real campaigns instead, which is a real loss: we are shipping a design we reasoned our way to rather than one we watched fail.
 
-**Exit:** manual release becomes a genuine burden, roughly 10–15 completed campaigns.
+Worth remembering if something in the tranche schedule or the proof rules turns out to be wrong in practice. It will not be the contract's fault.
 
-### Phase 1 — Base Sepolia
-Deploy `PeelbidEscrow` to testnet. Run a full campaign end to end on it. Foundry unit tests plus invariant tests — the load-bearing one being *total released plus total refunded never exceeds total funded*. Slither and Aderyn, both free, both clean before proceeding.
+### Phase 1 — Testnets · **done, 7–8 September**
+`PeelbidEscrow` deployed and verified on Base Sepolia and Arc testnet. Funded campaigns running on both: USDC in, sticker applied, proof on-chain, challenge window open. 27 scenario tests, 4 invariants across 16,384 randomized operations, Slither clean.
 
-**Exit:** full campaign lifecycle passes on testnet, static analysis clean.
+**Outstanding:** `release()` has not yet paid out on a real chain. The Base Sepolia challenge window closes 14 September; that is the last unproven step in the lifecycle.
 
-### Phase 2 — Base mainnet, capped
-Live with `MAX_CAMPAIGN_USDC` and `MAX_TOTAL_USDC` enforced in code. Worst case is a loss the founder can personally cover — that is the entire point of the numbers.
+### Phase 2 — Base mainnet, capped · **deployed 8 September, unfunded**
+Live and verified at `0xf78257D41C8e78dD19e941146B58ebe9f9726635`, owned by the Safe from the same session. Caps enforced as constants. **No campaign funded yet, deliberately** — nothing goes in until a full release cycle has completed on testnet.
 
 **Exit:** audit completed.
+
+### Phase 2b — Arc mainnet, 16 September
+Same bytecode, same caps. Blocking checks on the morning: the mainnet USDC address (Circle has not published it), gas price at launch, and whether the mainnet RPC sits on the same ad-blocked `arc.io` domain.
 
 ### Phase 3 — Raise the caps
 Only after audit. First real revenue goes here before anything else.
 
 ### On bug bounties
 A bounty is not a substitute for an audit. An audit is paying for the code to be examined; a bounty is offering to pay *if someone happens to look*. On a small, unknown contract, generally nobody looks — serious researchers are on protocols holding millions. Run a bounty on Immunefi or Cantina once there is real value at stake, and treat it as defence in depth, never as the primary control.
+
+---
+
+## 12. Peels — the waitlist points programme
+
+Built in-house on Vercel serverless functions plus Supabase, not on a quest platform. The people on the list are the first users; that relationship should not be rented from a third party.
+
+### Mechanics
+| Action | Peels |
+|---|---|
+| Join with an email | 25 |
+| Add an X handle | 10 |
+| Each signup through your referral link | 50 |
+| Approved real listing *(when listing opens)* | largest allocation, not yet set |
+
+Email is the login — entering an existing address returns that account rather than erroring. X handles are unverified by design; the cost of gaming that is 10 Peels and the friction of verification would cost more.
+
+### What Peels are for
+Early-access order, Founding Lister status (zero fee on a first campaign, featured placement, a badge), and **a share of protocol fees paid in USDC**. Working proposal: 10% of year-one fees, distributed periodically. Not yet stated publicly as a number.
+
+Stating the fee share upfront was the decision that made this programme defensible. Most points programmes leave the reward vague, which lets participants price in a token that may never come; when it doesn't, the anger lands on whoever is publicly identifiable. A concrete reward — a share of real revenue, in dollars — gives farmers something real to want and gives us something we can actually deliver.
+
+### Guardrails
+Peels cannot be bought, sold or transferred, carry no value outside the programme, and are not a token or a security. The site says this in the footer. **No token is promised, and none is denied** — the honest position is that nothing has been decided, and pretending otherwise in either direction would be a mistake.
+
+The largest allocations are reserved for approved real listings. This is what stops the leaderboard filling with accounts that will never apply a sticker: the escrow already refuses to pay anyone who doesn't do the physical work, so an account farming referrals tops out well below an account that lists a real object.
+
+**Get a lawyer to look at the fee-share mechanic before the first payout.** Discretionary rebates to a promotional programme are not obviously a security, but "not obviously" is not a legal opinion.
