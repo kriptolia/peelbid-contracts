@@ -63,6 +63,13 @@ its previous owner). All Circle RPCs are *.arc.io subdomains, so there's no
 client-side fix. The page detects it and says so. Check whether Arc mainnet
 uses the same domain.
 
+## Machine assistance — see design doc §13
+Planned, not scheduled. Never labelled "AI" anywhere in the product.
+Order: mockup renderer (pure homography, no model), plate-based scale,
+panel suggestion, proof checking. Proof checking is assistive only —
+it flags for review, never rejects. No chatbots, no bidding agents,
+no auto-approving sponsors (the owner's veto is the premise).
+
 ## Things that are NOT done
 - No keeper bot. Contracts don't self-execute; a due tranche sits unpaid
   until someone calls release(). Permissionless by design, but users need

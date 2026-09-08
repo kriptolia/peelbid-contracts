@@ -545,3 +545,45 @@ Peels cannot be bought, sold or transferred, carry no value outside the programm
 The largest allocations are reserved for approved real listings. This is what stops the leaderboard filling with accounts that will never apply a sticker: the escrow already refuses to pay anyone who doesn't do the physical work, so an account farming referrals tops out well below an account that lists a real object.
 
 **Get a lawyer to look at the fee-share mechanic before the first payout.** Discretionary rebates to a promotional programme are not obviously a security, but "not obviously" is not a legal opinion.
+
+---
+
+## 13. Machine assistance in the listing flow
+
+Recorded early so the site gets built with room for it. Not scheduled.
+
+**The rule: none of this is ever labelled "AI".** The listing builder should feel like it works well. The moment a badge says AI-powered, a real capability reads as a trend signal, and this project's whole position is that it doesn't chase those.
+
+### The bottleneck this addresses
+A listing is only worth bidding on if a sponsor can see what they're buying — the exact surface, at true size, with their own artwork on it. Asking an owner to do that by hand means measuring panels with a tape and drawing rectangles on a photo. Most people will abandon it, and the ones who don't will produce listings nobody trusts.
+
+### Four candidates, ranked
+
+**1. The mockup — and it needs no model at all.**
+Render the sponsor's artwork onto the owner's actual photo, at correct scale and perspective. Highest value of anything on this list: a sponsor who can see their logo on the real car bids with confidence, and the resulting image is the single most shareable artefact the product creates.
+
+The owner already draws a quad around the panel. Four corners plus a known real-world size is a homography — plain geometry, no inference, no per-call cost, runs in the browser. **Build this first and be suspicious of anyone who reaches for a model here.**
+
+**2. Scale from a known reference.**
+The most tedious step is asking for one real measurement. Number plates are standardised — 520×110 mm across the EU and Turkey. Detect the plate in a vehicle photo and every other dimension follows. For non-vehicles, fall back to asking.
+
+Small, well-scoped detection problem. High payoff: it removes the step most likely to make someone quit.
+
+**3. Panel suggestion.**
+Segment the photo into flat, usable surfaces and propose panels — door, tailgate, rocker strip — which the owner then adjusts. Turns a blank canvas into an edit, and edits get finished while blank canvases get abandoned.
+
+Harder, and it must never be authoritative. The owner's adjustment is the truth; the suggestion is a starting point. If it proposes a panel spanning a door shut, the print spec in §7b is violated and we've taught someone to do the wrong thing.
+
+**4. Proof checking.**
+Compare a monthly proof against the application photo: is the sticker still there, on the right panel, and is this a fresh capture rather than a reused one? Strategically the most valuable — verification is the gap the whole category has left open (§ opening) — and the hardest to get right.
+
+Assistive only, permanently. It flags a proof for human review; it never rejects one. A false rejection costs an owner a tranche they earned, and the contract has no way to undo that once released. The seven-day challenge window already gives the sponsor a human check; this only decides what a reviewer looks at first.
+
+### Explicitly not doing
+Chatbots. Agents that bid on anyone's behalf — nobody wants software spending their money on stickers. Anything "agentic" that exists to be described as agentic. Auto-approving sponsors: the owner's veto is the product's premise, and delegating it to a model gives away the thing being sold.
+
+### Cost discipline
+Our own gas already runs ~2.43 USDC per campaign on Arc against a 4 USDC fee on a 50 USDC campaign. Per-call inference on every listing view would not survive that. Ranked order above is roughly cheapest-to-costliest, which is not a coincidence: do the geometry first, add models only where they replace work a person would otherwise abandon.
+
+### Sequence
+Mockup renderer ships with the listing builder. Plate-based scale next, as a shortcut with a manual fallback. Panel suggestion and proof checking after there are real listings and real proofs to test against — building either on imagined inputs would be guessing twice.
