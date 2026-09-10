@@ -1,6 +1,6 @@
 # peelbid — escrow and data model
 
-**Status:** live on Base mainnet, Base Sepolia and Arc testnet · site reads the chain directly · 8 September 2026
+**Status:** live on three chains · site rebuilt on Next · keeper running · 10 September 2026
 **Purpose:** settle the mechanics on paper before any Solidity is written.
 
 ---
@@ -469,6 +469,17 @@ The same applies to `reclaimUnapplied` and `reclaimMissedTranche` — the sponso
 ### Repo
 `README.md` documents the campaign lifecycle, the design decisions and their reasons, and the deploy procedure. `.env.example` carries the USDC address for each network with a note to re-verify against Circle before any mainnet deploy. The repo stays private until launch; the deployed source is verified on all three explorers regardless.
 
+### Keeper — built 9 September
+`peelbid-keeper` (separate private repo). Node, ethers, no framework. Reads each configured campaign, finds tranches whose proof is in and whose challenge window has closed, and calls `release()`.
+
+**It has no privileges and holds no funds.** `release()` is permissionless, so the keeper is only somebody calling it on time. It carries gas and nothing else. If its key leaked, the worst an attacker could do is trigger a payout to the campaign's registered owner — which is what was going to happen anyway.
+
+Safety rails: dry-run default; `staticCall` simulation before every send, so a wrong view of state costs nothing; a `MAX_GAS_NATIVE` ceiling that skips the run rather than draining the wallet in a fee spike; and a `paused()` check to avoid guaranteed reverts.
+
+Verified against both testnets on 9 September — countdowns matched the site's independently, 125.2h on Base Sepolia and 143.8h on Arc.
+
+**Not yet done:** it runs by hand. Cron or a GitHub Action comes after the first real releases on 14–15 September. Campaign ids live in `.env`, which is right at this scale and wrong at fifty.
+
 ### Before mainnet
 - **Confirm Arc mainnet's USDC address.** Circle's docs currently state that only testnet addresses are published. `0x3600…0000` is a system predeploy and will probably carry over, but it is immutable once in the constructor — check it on the morning of the 16th.
 - Watch the first campaign through a full tranche release (14 Sep)
@@ -587,3 +598,51 @@ Our own gas already runs ~2.43 USDC per campaign on Arc against a 4 USDC fee on 
 
 ### Sequence
 Mockup renderer ships with the listing builder. Plate-based scale next, as a shortcut with a manual fallback. Panel suggestion and proof checking after there are real listings and real proofs to test against — building either on imagined inputs would be guessing twice.
+
+---
+
+## 14. The site
+
+`peelbid.com` runs on Next.js (App Router, JavaScript, no TypeScript, no Tailwind), deployed from the private `peelbid-web` repo. The old single-file static site is retired; its Vercel project is kept for a few days as a rollback and then deleted.
+
+### Why the rewrite
+Not for looks — the design carried over almost unchanged. Every new page was becoming a copied HTML file with its own duplicated stylesheet, and the listing pages alone would have needed one file per listing. That collapses at the fifth listing. Now `app/examples/[slug]` renders any number of listings from data, and `globals.css` holds every design token in one place.
+
+Three libraries went with it: GSAP, ScrollTrigger and Lenis, replaced by about thirty lines of our own (one IntersectionObserver for reveals, one `requestAnimationFrame` loop for the peeling sticker, CSS `scroll-behavior` for smooth scroll).
+
+### Shape
+```
+app/
+  page.js                     home — hero, capabilities, waitlist, leaderboard, escrow
+  examples/page.js            index of worked examples
+  examples/[slug]/page.js     one example listing
+  builder/page.js             the listing builder
+  privacy/page.js
+  api/join/route.js           waitlist join, Peels award
+  api/leaderboard/route.js    paginated board, ten per page
+components/    Header Footer Mark RegMarks TitleBlock PanelMap
+               Sticker Marquee Reveal Waitlist Leaderboard LiveEscrow
+lib/           examples.js  listings.js
+```
+
+**Next 15 gotcha, worth remembering:** `params` in a dynamic route is a Promise. `params.slug` read directly is undefined, the page calls `notFound()`, and you get a 404 with no error. Every dynamic page needs `const { slug } = await params;` in an `async` component.
+
+### Worked examples
+Four listings at `/examples`: a car, a laptop lid, a backpack, a cabin suitcase. Real photographs (Unsplash and Pexels, commercial-use licensed), panels marked with the builder itself, real centimetre sizes, floor prices from 45 to 180 USDC.
+
+Each carries three pieces of teaching the product depends on:
+- **Context** — where the object goes, how often, who sees it. Specific enough that it couldn't be pasted onto someone else's listing.
+- **A pitch in the owner's voice** — the argument for why a brand should pick this object. This is the field most owners will skip and the one sponsors actually read.
+- **A lesson** — one thing this example gets right or wrong. The car's lesson is that our own photograph is bad: shot from a low three-quarter angle, so the side is compressed and the bonnet reads as a sliver.
+
+**Nothing is bookable.** No CLAIM button anywhere. A live-looking button on an example generates a click and then disappointment; the only call to action is the waitlist.
+
+### Panel geometry: how it's actually done
+Quads are four `[x, y]` pairs as fractions of the image, so they hold at any render size. The listing page draws them as an SVG overlay with `viewBox="0 0 100 100"` and `preserveAspectRatio="none"`.
+
+The first attempt had me estimating coordinates by eye from a gridded screenshot. Three rounds in, the car's door panel was still wrong. The fix was obvious in hindsight: **use the builder.** Two minutes of clicking beat an hour of guessing, and it was the tool's first real test — which is how the missing corner-drag got found.
+
+### Builder
+`/builder`. Load a photo, click four corners, then drag any corner to correct it. Name, centimetre size, floor price and note per panel. Exports normalised coordinates straight into the shape `lib/examples.js` expects. Everything is client-side; no photo leaves the browser.
+
+Still missing: scale calibration from a known reference (§13 item 2) and the mockup renderer (§13 item 1, the highest-value piece). Neither blocks anything today.

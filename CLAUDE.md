@@ -19,7 +19,7 @@ Full design: peelbid-escrow-design.md (read it before touching the contract).
 - USDC has 6 decimals.
 - Checks-effects-interactions always. nonReentrant on anything moving tokens.
 
-## Status (8 Sep 2026)
+## Status (10 Sep 2026)
 LIVE ON BASE MAINNET, verified, owned by the Safe.
   Address: 0xf78257D41C8e78dD19e941146B58ebe9f9726635
   Chain:   8453
@@ -38,8 +38,17 @@ First live campaign running:
   Challenge window closes 14 Sep 16:24 UTC — call release(id, 0) after that.
   Expect 2.76 USDC to owner, 0.24 fee, 9 USDC left in escrow.
 
-Next: release tranche 0 on 14 Sep, Arc testnet, Arc mainnet 16 Sep.
-Then: keeper bot, listing builder, proof feed.
+NEXT TWO DATES, both load-bearing:
+  14 Sep 19:24 Istanbul — Base Sepolia challenge window closes. Run the
+    keeper with DRY_RUN=false. This is the last unproven step in the
+    lifecycle: release() has never paid out on a real chain.
+    Expect 2.76 USDC to owner, 0.24 fee, 9 USDC left in escrow.
+  16 Sep — Arc mainnet. Three checks that morning before deploying:
+    the mainnet USDC address (Circle had not published it as of 9 Sep),
+    the gas price, and whether the mainnet RPC sits on the same
+    ad-blocked arc.io domain.
+
+Then: builder mockup renderer, scale calibration, proof feed.
 
 ## Peels (waitlist points) — see design doc §12
 In-house on Vercel serverless + Supabase, deliberately not on Zealy/Galxe.
@@ -50,18 +59,28 @@ protocol fees in USDC (~10% year one, % not yet public).
 No token promised, none denied. Both would be wrong.
 Lawyer must review the fee share before the first payout.
 
-## Site
-peelbid.com is one page. Waitlist and Peels stay; a "What we're building"
-section shows six capabilities with honest status chips (five in build/soon,
-escrow live); a "The escrow, live" section reads the contract directly via
-ethers and renders the running campaign. No backend, no database.
-Do NOT split this into separate pages — the site is the product to a
-visitor, the contract is plumbing nobody asks to see.
+## Site — Next.js, see design doc §14
+peelbid.com runs from the private repo `peelbid-web` (Next App Router, JS,
+no TS, no Tailwind). The old static single-file site is retired.
+Routes: / · /examples · /examples/[slug] · /builder · /privacy
+        /api/join · /api/leaderboard
+Shared: components/ for Header, Footer, PanelMap, Waitlist, Leaderboard,
+LiveEscrow, Sticker, Marquee, Reveal. globals.css holds every design token.
 
-Known: ad blockers block rpc.testnet.arc.io (arc.io is on filter lists from
-its previous owner). All Circle RPCs are *.arc.io subdomains, so there's no
-client-side fix. The page detects it and says so. Check whether Arc mainnet
-uses the same domain.
+NEXT 15: params is a Promise in dynamic routes. Use
+  export default async function Page({ params }) { const { slug } = await params; }
+Reading params.slug directly gives a silent 404.
+
+Four worked examples live at /examples — car, laptop lid, backpack, cabin
+case. Real photos, panels placed with our own builder, real cm, real prices.
+Nothing is bookable: no CLAIM buttons, waitlist is the only CTA.
+Each example carries context + an owner-voice pitch + one lesson. The car's
+lesson is that our own photo is badly shot; we say so on the page.
+
+Panel quads are [x,y] fractions of the image, drawn as an SVG overlay with
+viewBox 0 0 100 100 and preserveAspectRatio="none".
+Place them with /builder, never by estimating coordinates — that was tried
+and failed three times.
 
 ## Machine assistance — see design doc §13
 Planned, not scheduled. Never labelled "AI" anywhere in the product.
@@ -70,13 +89,24 @@ panel suggestion, proof checking. Proof checking is assistive only —
 it flags for review, never rejects. No chatbots, no bidding agents,
 no auto-approving sponsors (the owner's veto is the premise).
 
+## Keeper
+Separate private repo `peelbid-keeper`. Node + ethers. Sweeps configured
+campaigns, releases tranches past their challenge window. No privileges,
+holds only gas — release() is permissionless, the keeper is just early.
+DRY_RUN defaults true. staticCall before every send. MAX_GAS_NATIVE ceiling.
+Runs by hand for now; automate after 14-15 Sep.
+Keeper wallet: 0x46fD85467f739b3A41B29Bd603DD47E8e86FD90A
+
 ## Things that are NOT done
 - No keeper bot. Contracts don't self-execute; a due tranche sits unpaid
   until someone calls release(). Permissionless by design, but users need
   a claim button plus a bot that sweeps daily.
 - Arbiter and feeRecipient are an EOA on testnet. On mainnet both must be
   a Safe multisig before any real money is accepted.
-- No frontend at all yet.
+- Builder has no scale calibration and no mockup renderer. The mockup is
+  the highest-value piece per design doc §13 and needs no model at all —
+  it is a homography onto the quad the owner already drew.
+- Keeper runs by hand. Automate after 14–15 Sep.
 - No audit. The hard caps are the substitute.
 
 ## Working style
