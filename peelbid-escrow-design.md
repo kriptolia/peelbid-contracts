@@ -1,6 +1,6 @@
 # peelbid — escrow and data model
 
-**Status:** live on three chains · site rebuilt on Next · keeper running · 10 September 2026
+**Status:** live on three chains · site on Next · keeper running · 11 September 2026
 **Purpose:** settle the mechanics on paper before any Solidity is written.
 
 ---
@@ -645,4 +645,18 @@ The first attempt had me estimating coordinates by eye from a gridded screenshot
 ### Builder
 `/builder`. Load a photo, click four corners, then drag any corner to correct it. Name, centimetre size, floor price and note per panel. Exports normalised coordinates straight into the shape `lib/examples.js` expects. Everything is client-side; no photo leaves the browser.
 
-Still missing: scale calibration from a known reference (§13 item 2) and the mockup renderer (§13 item 1, the highest-value piece). Neither blocks anything today.
+Still missing: scale calibration from a known reference (§13 item 2).
+
+### The mockup renderer: built, shelved
+`lib/warp.js` does the geometry correctly — a homography from the unit square to the panel's quad, subdivided into a 14×14 grid, each cell split into two triangles and affine-mapped. Corners land exactly where they should.
+
+It still doesn't convince, and the reason isn't geometry. A vinyl sticker on a real object picks up that surface's shading and sheen; artwork pasted flat reads as a photo taped on. Two attempts at fixing that:
+
+1. A `soft-light` plus weak `multiply` pass of the original photo, clipped to the quad. This introduced a visible triangular mesh, because drawing each triangle at 94% alpha let the deliberately-overlapping edges stack.
+2. Compositing offscreen at full alpha first, then relighting masked to the artwork's own alpha. The mesh went away and the lighting went too far — logos sank into the surface and looked washed out.
+
+The underlying problem is that one blend formula can't serve brushed aluminium, matte black canvas and painted car panel. Each needs different treatment.
+
+**Shelved, not deleted.** The code stays; listing pages just don't use it. The reference listing that prompted this work (coinempress) has no mockups either — numbered panels and real dimensions, and it reads as credible. An honest measurement beats a bad mockup.
+
+**When to revisit:** this is probably an image-model job rather than a blend-mode job — give a model the surface photo and the artwork and ask for the composite. That means per-call cost and latency, so it needs real listings to justify it. Revisit after launch, not before.

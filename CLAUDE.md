@@ -103,9 +103,12 @@ Keeper wallet: 0x46fD85467f739b3A41B29Bd603DD47E8e86FD90A
   a claim button plus a bot that sweeps daily.
 - Arbiter and feeRecipient are an EOA on testnet. On mainnet both must be
   a Safe multisig before any real money is accepted.
-- Builder has no scale calibration and no mockup renderer. The mockup is
-  the highest-value piece per design doc §13 and needs no model at all —
-  it is a homography onto the quad the owner already drew.
+- Builder has no scale calibration.
+- Mockup renderer is BUILT but SHELVED — see design doc §14. The geometry in
+  lib/warp.js is correct; the lighting isn't, and one blend formula can't
+  serve aluminium, canvas and car paint. Don't retry with blend modes.
+  Probably an image-model job. Listing pages deliberately don't use it.
+- /builder is gated: ?key=peel-it opens it, remembered in localStorage.
 - Keeper runs by hand. Automate after 14–15 Sep.
 - No audit. The hard caps are the substitute.
 
