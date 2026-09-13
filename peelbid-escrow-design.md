@@ -1,6 +1,6 @@
 # peelbid — escrow and data model
 
-**Status:** live on three chains · site on Next · keeper running · 11 September 2026
+**Status:** live on three chains · marketplace working end to end · 14 September 2026
 **Purpose:** settle the mechanics on paper before any Solidity is written.
 
 ---
@@ -660,3 +660,67 @@ The underlying problem is that one blend formula can't serve brushed aluminium, 
 **Shelved, not deleted.** The code stays; listing pages just don't use it. The reference listing that prompted this work (coinempress) has no mockups either — numbered panels and real dimensions, and it reads as credible. An honest measurement beats a bad mockup.
 
 **When to revisit:** this is probably an image-model job rather than a blend-mode job — give a model the surface photo and the artwork and ask for the composite. That means per-call cost and latency, so it needs real listings to justify it. Revisit after launch, not before.
+
+---
+
+## 15. The marketplace
+
+Between 11 and 14 September the site went from a waiting list with a builder attached to something a person can actually use: sign in, list an object, receive bids, decide on them.
+
+### Accounts
+Privy, email only. An embedded wallet is created at sign-in and nothing uses it yet — no money moves through the site — but an owner needs somewhere for a campaign to pay out, and building a second auth system later would have been wasted work.
+
+**A trap worth recording:** in `@privy-io/react-auth` v2 the wallet config is nested under the chain type.
+
+```js
+embeddedWallets: { ethereum: { createOnLogin: "users-without-wallets" } }
+```
+
+A flat `createOnLogin` is the v1 shape. It is silently ignored — no warning, no error, no wallet. Two accounts existed for a day before anyone noticed they had no address.
+
+Server-side, `lib/privy.js` verifies the access token against the app's JWKS rather than trusting its contents, and `emailOf(did)` reads the email from Privy's API rather than from a request header a caller could set.
+
+### Who is on which side
+A single question at first sign-in — owner, brand, or both — stored in `profiles`. It decides which half of the dashboard leads, nothing more. The two halves look nothing alike and a brand landing on "Your listings · sign in to start" reads as a broken product.
+
+### The gate, and why it is asymmetric
+**Listing is invite-only**, opening from the waitlist in Peel order. `invited` on the waitlist row; the operator sets it by hand.
+
+**Bidding is open** to anyone signed in.
+
+The asymmetry is deliberate. Supply quality is what a marketplace is judged on — a bad listing damages every other listing, and the first ones set the standard. Demand is what we want more of, and making a brand queue before it can spend money is the seller keeping the customer at the door.
+
+A signed-in owner without an invite sees their Peel count, their rank, and an explanation. Somewhere to stand beats an email that may or may not arrive.
+
+### Bidding
+`bids`, one row per bid. Rules live in `lib/bids.js` so the API and the interface can't disagree about what a valid bid is.
+
+- **Ranked by monthly rate**, never by headline total. Without that a twelve-month offer always beats a one-month offer regardless of value, and the owner can't compare them. The bar to clear is a rate; the interface converts it to a total for whichever run length the bidder picks.
+- **Artwork arrives with the bid.** One approval covers the sponsor and the creative together, so there is no second step where a sponsor is accepted and their artwork then refused — which would leave money in escrow with nobody at fault.
+- **One live bid per bidder per panel.** Raising replaces.
+- Placing a bid marks everything below its rate `outbid`. Approving one rejects the rest and moves the panel to `reserved`.
+- **One revision request per bid.** The soft alternative to a flat no: say what would make it work.
+- The owner can decline without giving a reason. That is the premise, not a feature.
+
+**No deposit.** The design called for 10% locked at bid time (§5), which needs an auction contract we deliberately didn't write (§9). A bid here is a commitment, not money. The fake-bid risk that the deposit was meant to price is mitigated weakly — brand name and URL required, full history public — and properly only when the auction contract lands.
+
+**Panels go `reserved`, never `sold`, from the interface.** Sold means funded, and funding still happens by hand from the Safe.
+
+### Notifications
+Derived from the bids rather than kept in a feed of their own. A bid waiting on the owner *is* the notification and it clears when they decide; a decided bid is a notification for the bidder until they open it. One column, `seen_by_bidder_at`, carries the whole thing.
+
+A bell in the header, a per-listing badge on the dashboard so an owner doesn't have to open a listing to find out something is waiting, and a "Your bids" section — because a brand that bids and then has nowhere to go is a brand that doesn't bid twice.
+
+### A bug worth remembering
+`sbUpdate` appended `updated_at` to every patch. `listings` has that column, `bids` does not, so every bid decision failed with a 400 and the interface said "Couldn't save that decision."
+
+The helper now sends exactly the columns it is given. **A library that quietly adds things you didn't ask for will eventually break a table you weren't thinking about.**
+
+### The header
+Rebuilt so it holds one line and one shape in both auth states. Signing in used to add a bell, an email pill and a sign-out link, which pushed the row into wrapping. The account control is now a single circle that opens a menu, and the "Live on Base · Arc" pill was removed entirely — it was the main width culprit and the escrow section says the same thing with real numbers.
+
+### Still missing
+- **Email.** Nothing reaches anyone outside the site. An owner has to visit the dashboard to learn a bid arrived. For the first campaigns the operator tells them; it needs a mail service to be real.
+- **No expiry on bids.** They stay open indefinitely. The 48-hour payment window in §5 depends on escrow, which is still manual.
+- **No public directory of listings.** A published listing has its own page and no way to be found from the site. This is the most visible remaining gap on the demand side.
+- **Nothing links an approved bid to `createCampaign`.** The operator reads the approval and sets the campaign up from the Safe.

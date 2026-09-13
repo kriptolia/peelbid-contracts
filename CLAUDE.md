@@ -19,7 +19,7 @@ Full design: peelbid-escrow-design.md (read it before touching the contract).
 - USDC has 6 decimals.
 - Checks-effects-interactions always. nonReentrant on anything moving tokens.
 
-## Status (10 Sep 2026)
+## Status (14 Sep 2026)
 LIVE ON BASE MAINNET, verified, owned by the Safe.
   Address: 0xf78257D41C8e78dD19e941146B58ebe9f9726635
   Chain:   8453
@@ -38,15 +38,25 @@ First live campaign running:
   Challenge window closes 14 Sep 16:24 UTC — call release(id, 0) after that.
   Expect 2.76 USDC to owner, 0.24 fee, 9 USDC left in escrow.
 
-NEXT TWO DATES, both load-bearing:
-  14 Sep 19:24 Istanbul — Base Sepolia challenge window closes. Run the
-    keeper with DRY_RUN=false. This is the last unproven step in the
-    lifecycle: release() has never paid out on a real chain.
+NEXT DATES, both load-bearing:
+  14 Sep 19:24 Istanbul — Base Sepolia challenge window closes. Set the
+    keeper repo variable DRY_RUN=false, then Actions -> Run workflow.
+    This is the last unproven step in the lifecycle: release() has never
+    paid out on a real chain, and it doubles as the keeper's first real run.
     Expect 2.76 USDC to owner, 0.24 fee, 9 USDC left in escrow.
-  16 Sep — Arc mainnet. Three checks that morning before deploying:
-    the mainnet USDC address (Circle had not published it as of 9 Sep),
-    the gas price, and whether the mainnet RPC sits on the same
-    ad-blocked arc.io domain.
+  15 Sep — Arc testnet's first tranche. Same command, other chain.
+    Also: activate the Safe on Arc, fund the deploy wallet.
+  16 Sep — Arc mainnet. Follow arc-mainnet-runbook.md. Three checks that
+    morning before deploying: the mainnet USDC address (Circle had not
+    published it as of 9 Sep), the gas price, and whether the mainnet RPC
+    sits on the same ad-blocked arc.io domain.
+    DO NOT fund a campaign on the 16th.
+
+AFTER ARC: the auction contract. Decided 13 Sep — bids and deposits go
+fully on-chain, escrow v2 with a `campaignCreator` role so the auction
+contract can call createCampaign without owning the escrow, and refunds
+on a withdrawal pattern so a hostile bidder can't block being outbid.
+Escrow must be redeployed; mainnet holds no funds yet, so now is the moment.
 
 Then: builder mockup renderer, scale calibration, proof feed.
 
@@ -58,6 +68,37 @@ Reward is stated upfront: early access, Founding Lister perks, and a share of
 protocol fees in USDC (~10% year one, % not yet public).
 No token promised, none denied. Both would be wrong.
 Lawyer must review the fee share before the first payout.
+
+## Marketplace — see design doc §15
+The site is a working two-sided product, not a waiting list.
+Sign in (Privy, email) -> role question -> dashboard.
+Owners list; brands bid; owners approve.
+
+GATING, and it is asymmetric on purpose:
+  Listing is INVITE-ONLY. `invited` on the waitlist row, set by hand.
+  Bidding is OPEN to anyone signed in.
+  Supply quality is what a marketplace is judged on. Demand is what we
+  want more of. Do not "fix" this by gating bids.
+
+PRIVY v2 TRAP: embedded wallet config is nested.
+  embeddedWallets: { ethereum: { createOnLogin: "users-without-wallets" } }
+  A flat createOnLogin is silently ignored — no error, no wallet.
+
+BIDS: ranked by MONTHLY RATE, never headline total. Artwork comes with the
+bid and one approval covers both. One revision request per bid. Approving
+sets the panel to `reserved`, never `sold` — sold means funded, and funding
+is still manual from the Safe.
+No deposit: needs the auction contract we haven't written.
+
+NOTIFICATIONS are derived from bids, not stored in a feed. One column,
+seen_by_bidder_at. Don't build a notifications table.
+
+DB helper rule: sbUpdate sends exactly the columns you pass. It used to
+append updated_at, which broke every write to `bids` silently. Don't let a
+helper add columns you didn't ask for.
+
+Tables: listings · bids · profiles · waitlist
+Buckets: listing-photos · bid-artwork
 
 ## Site — Next.js, see design doc §14
 peelbid.com runs from the private repo `peelbid-web` (Next App Router, JS,
@@ -98,12 +139,20 @@ Runs by hand for now; automate after 14-15 Sep.
 Keeper wallet: 0x46fD85467f739b3A41B29Bd603DD47E8e86FD90A
 
 ## Things that are NOT done
+- No email anywhere. Nobody is told anything unless they open the site.
+- No public directory of listings — a published listing can only be reached
+  by knowing its URL. Biggest visible gap on the demand side.
+- Bids never expire.
+- Nothing connects an approved bid to createCampaign. The operator reads the
+  approval and sets the campaign up from the Safe by hand.
 - No keeper bot. Contracts don't self-execute; a due tranche sits unpaid
   until someone calls release(). Permissionless by design, but users need
   a claim button plus a bot that sweeps daily.
 - Arbiter and feeRecipient are an EOA on testnet. On mainnet both must be
   a Safe multisig before any real money is accepted.
 - Builder has no scale calibration.
+- /builder is gated behind ?key=peel-it and shows "Built. Not open to
+  everyone." to everyone else.
 - Mockup renderer is BUILT but SHELVED — see design doc §14. The geometry in
   lib/warp.js is correct; the lighting isn't, and one blend formula can't
   serve aluminium, canvas and car paint. Don't retry with blend modes.
