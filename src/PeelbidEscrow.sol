@@ -50,6 +50,9 @@ contract PeelbidEscrow is Ownable, Pausable, ReentrancyGuard {
     IERC20  public immutable TOKEN;
     address public arbiter;
     address public feeRecipient;
+    /// @notice May call createCampaign. Appointed and revoked by the owner.
+    /// @dev Zero until set, in which case only the owner can create campaigns.
+    address public campaignCreator;
     uint256 public totalEscrowed;
 
     mapping(bytes32 => Campaign)  public campaigns;
@@ -66,7 +69,8 @@ contract PeelbidEscrow is Ownable, Pausable, ReentrancyGuard {
     event CampaignTerminated(bytes32 indexed id, uint256 refundedToSponsor);
     event CampaignCompleted(bytes32 indexed id);
     event ArbiterChanged(address indexed previous, address indexed next);
-    event FeeRecipientChanged(address indexed previous, address indexed next);
+     event FeeRecipientChanged(address indexed previous, address indexed next);
+    event CampaignCreatorChanged(address indexed previous, address indexed next);
 
     error NotOwnerOfCampaign();
     error NotSponsor();
@@ -89,8 +93,16 @@ contract PeelbidEscrow is Ownable, Pausable, ReentrancyGuard {
     error ChallengeWindowClosed();
     error ZeroAddress();
 
+     error NotCreator();
+ 
     modifier onlyArbiter() {
         if (msg.sender != arbiter) revert NotArbiter();
+        _;
+    }
+ 
+    /// @dev The owner keeps the ability, so nothing that worked before stops.
+    modifier onlyCreator() {
+        if (msg.sender != owner() && msg.sender != campaignCreator) revert NotCreator();
         _;
     }
 
@@ -141,8 +153,8 @@ contract PeelbidEscrow is Ownable, Pausable, ReentrancyGuard {
         uint256 total,
         uint16 feeBps,
         uint16[] calldata percentsBps,
-        uint32[] calldata offsetDays
-    ) external onlyOwner whenNotPaused {
+         uint32[] calldata offsetDays
+    ) external onlyCreator whenNotPaused {
         if (campaigns[id].status != CampaignStatus.None) revert CampaignExists();
         if (campaignOwner == address(0) || sponsor == address(0)) revert ZeroAddress();
         if (campaignOwner == sponsor) revert BadState();
@@ -384,4 +396,12 @@ contract PeelbidEscrow is Ownable, Pausable, ReentrancyGuard {
         emit FeeRecipientChanged(feeRecipient, next);
         feeRecipient = next;
     }
+ 
+    /// @notice Appoint the contract allowed to create campaigns, or revoke by
+    ///         passing the zero address. Nothing else about this role exists.
+    function setCampaignCreator(address next) external onlyOwner {
+        emit CampaignCreatorChanged(campaignCreator, next);
+        campaignCreator = next;
+    }
+ 
 }

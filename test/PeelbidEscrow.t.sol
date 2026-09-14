@@ -351,4 +351,80 @@ contract PeelbidEscrowTest is Test {
         vm.expectRevert(PeelbidEscrow.BadTrancheIndex.selector);
         escrow.reclaimMissedTranche(ID, 0);
     }
+
+    // ---------------- campaignCreator ----------------
+
+    function test_CreateRevertsForStrangerWithNoCreatorSet() public {
+        (uint16[] memory pct, uint32[] memory off) = _schedule();
+        vm.prank(stranger);
+        vm.expectRevert(PeelbidEscrow.NotCreator.selector);
+        escrow.createCampaign(ID, carOwner, sponsor, TOTAL, FEE, pct, off);
+    }
+
+    function test_OwnerCanStillCreateWithNoCreatorSet() public {
+        assertEq(escrow.campaignCreator(), address(0));
+        _create(ID, TOTAL);
+        assertEq(escrow.trancheCount(ID), 4);
+    }
+
+    function test_AppointedCreatorCanCreate() public {
+        address auction = makeAddr("auction");
+        escrow.setCampaignCreator(auction);
+
+        (uint16[] memory pct, uint32[] memory off) = _schedule();
+        vm.prank(auction);
+        escrow.createCampaign(ID, carOwner, sponsor, TOTAL, FEE, pct, off);
+
+        assertEq(escrow.trancheCount(ID), 4);
+        (address o,,,,,,,,) = escrow.campaigns(ID);
+        assertEq(o, carOwner);
+    }
+
+    function test_RevokedCreatorCannotCreate() public {
+        address auction = makeAddr("auction");
+        escrow.setCampaignCreator(auction);
+        escrow.setCampaignCreator(address(0));
+
+        (uint16[] memory pct, uint32[] memory off) = _schedule();
+        vm.prank(auction);
+        vm.expectRevert(PeelbidEscrow.NotCreator.selector);
+        escrow.createCampaign(ID, carOwner, sponsor, TOTAL, FEE, pct, off);
+    }
+
+    function test_CreatorCannotDoAnythingElse() public {
+        // The role writes campaign terms. It must not touch money or settings.
+        address auction = makeAddr("auction");
+        escrow.setCampaignCreator(auction);
+        _create(ID, TOTAL);
+        _fund(ID);
+        _apply(ID);
+        skip(7 days);
+
+        vm.startPrank(auction);
+
+        vm.expectRevert();
+        escrow.pause();
+
+        vm.expectRevert();
+        escrow.setArbiter(auction);
+
+        vm.expectRevert();
+        escrow.setCampaignCreator(auction);
+
+        vm.expectRevert(PeelbidEscrow.NotArbiter.selector);
+        escrow.terminate(ID);
+
+        vm.stopPrank();
+
+        // release() is permissionless by design, so anyone may call it —
+        // including the creator. The money still goes to the campaign's owner.
+        escrow.release(ID, 0);
+        assertEq(usdc.balanceOf(carOwner), T0_OWNER);
+    }
+
+    function test_StrangerCannotAppointThemselves() public {
+        vm.prank(stranger);
+        vm.expectRevert();
+        escrow.setCampaignCreator(stranger);
+    }
 }
