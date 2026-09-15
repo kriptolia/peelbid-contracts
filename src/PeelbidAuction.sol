@@ -315,19 +315,52 @@ contract PeelbidAuction is Ownable, Pausable, ReentrancyGuard {
         if (rate < leadRate + (leadRate * MIN_RAISE_BPS) / 10_000) revert BidTooLow();
     }
 
-    /// @dev Set the caller's deposit for a new amount and report what still
-    ///      has to be pulled. Raising your own bid tops up rather than locking
-    ///      a second deposit.
+    /**
+     * @dev Move the caller's deposit to what the new amount requires, and
+     *      report what still has to be pulled in.
+     *
+     *      A deposit can go *down* as well as up. Raising your rate by
+     *      shortening the run does exactly that: 500 USDC over six months is
+     *      83/month and locks 50, while 300 over three is 100/month and locks
+     *      30. The rate rose, the deposit fell.
+     *
+     *      An earlier version only handled the upward case, so the 20 USDC
+     *      difference stayed in the contract belonging to nobody — counted in
+     *      totalHeld, owed to no one, unreachable. An invariant found it after
+     *      three calls; no amount of staring at the function would have.
+     */
+    /**
+     * @dev Set the caller's deposit for a new amount and report what still has
+     *      to be pulled.
+     *
+     *      Raising your bid usually means topping up. It can also mean locking
+     *      *less*, because ranking is by monthly rate and the deposit follows
+     *      the total: six months at 300 is 50 a month, and one month at 60
+     *      beats it on rate while being a fifth of the money.
+     *
+     *      An earlier version wrote the smaller deposit and left `totalHeld`
+     *      alone. The gap was money the contract held and owed to nobody. An
+     *      invariant caught it on its first run — no scenario test would have,
+     *      because nobody thinks to write "bidder raises their offer and locks
+     *      less than before".
+     */
     function _reprice(bytes32 id, uint256 amount) internal returns (uint256 toPull) {
         uint256 want = depositFor(amount);
         uint256 have = bids[id][msg.sender].deposit;
 
-        toPull = want > have ? want - have : 0;
-        if (totalHeld + toPull > MAX_TOTAL_HELD) revert TotalCapExceeded();
+        if (want > have) {
+            toPull = want - have;
+            if (totalHeld + toPull > MAX_TOTAL_HELD) revert TotalCapExceeded();
+            totalHeld += toPull;
+        } else if (have > want) {
+            uint256 back = have - want;
+            totalHeld -= back;
+            refunds[msg.sender] += back;
+            emit RefundCredited(msg.sender, back);
+        }
 
         bids[id][msg.sender].amount  = amount;
         bids[id][msg.sender].deposit = want;
-        totalHeld += toPull;
     }
 
     /// @notice Close bidding. Permissionless once the clock has run out.

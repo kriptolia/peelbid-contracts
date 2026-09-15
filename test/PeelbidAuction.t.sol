@@ -261,6 +261,47 @@ contract PeelbidAuctionTest is Test {
         assertEq(auction.totalHeld(), 40e6);
     }
 
+    function test_ShorteningTheRunReturnsTheDifference() public {
+        // Found by the invariant suite. Raising the monthly rate by shortening
+        // the run lowers the deposit, and the difference has to come back.
+        vm.prank(carOwner);
+        auction.openAuction(AID, 50e6, RUNS_AT_50, 3 days, FEE);
+
+        vm.prank(brandA);
+        auction.placeBid(AID, 500e6, 6, ART);        // 83/month, locks 50
+        assertEq(auction.totalHeld(), 50e6);
+
+        vm.prank(brandA);
+        auction.placeBid(AID, 300e6, 3, ART);        // 100/month, locks 30
+
+        assertEq(auction.totalHeld(), 30e6);
+        assertEq(auction.refunds(brandA), 20e6);     // not stranded
+
+        uint256 before = usdc.balanceOf(brandA);
+        vm.prank(brandA);
+        auction.withdrawRefund();
+        assertEq(usdc.balanceOf(brandA), before + 20e6);
+    }
+
+    function test_RaisingTheRateWhileLoweringTheTotalReturnsTheDifference() public {
+        // Six months at 300 is 50/month. One month at 60 is 60/month — a
+        // better bid on a fifth of the money, so the deposit shrinks from 30
+        // to 10 and 20 has to come back. The invariant suite found this.
+        vm.prank(carOwner);
+        auction.openAuction(AID, 50e6, RUNS_AT_50, 3 days, FEE);
+
+        _bid(brandA, 300e6, 6);
+        assertEq(auction.totalHeld(), 30e6);
+
+        _bid(brandA, 60e6, 1);
+        assertEq(auction.totalHeld(), 10e6);
+        assertEq(auction.refunds(brandA), 20e6);
+
+        (,,, uint256 dep) = auction.bids(AID, brandA);
+        assertEq(dep, 10e6);
+        assertEq(usdc.balanceOf(address(auction)), 30e6);   // 10 held + 20 owed
+    }
+
     function test_BeingOutbidCreditsARefundItDoesNotSend() public {
         _open();
         _bid(brandA, 300e6, 3);
