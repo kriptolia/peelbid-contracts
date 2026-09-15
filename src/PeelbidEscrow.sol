@@ -204,6 +204,28 @@ contract PeelbidEscrow is Ownable, Pausable, ReentrancyGuard {
         TOKEN.safeTransferFrom(msg.sender, address(this), c.total);
         emit CampaignFunded(id, c.total, c.fundedAt);
     }
+ 
+    /// @notice Fund a campaign on the sponsor's behalf. Used when an auction
+    ///         settles and the winner's USDC is already held by that contract.
+    /// @dev Pulls from the caller, but the campaign's sponsor is unchanged, so
+    ///      every refund path still pays the brand rather than the caller.
+    ///      Restricted to campaignCreator: the owner is excluded on purpose,
+    ///      since there is no reason for a human to route money this way.
+    function fundOnBehalf(bytes32 id) external nonReentrant whenNotPaused {
+        if (msg.sender != campaignCreator) revert NotCreator();
+ 
+        Campaign storage c = campaigns[id];
+        if (c.status == CampaignStatus.None) revert NoSuchCampaign();
+        if (c.status != CampaignStatus.Created) revert BadState();
+        if (totalEscrowed + c.total > MAX_TOTAL) revert TotalCapExceeded();
+ 
+        c.status   = CampaignStatus.Funded;
+        c.fundedAt = uint64(block.timestamp);
+        totalEscrowed += c.total;
+ 
+        TOKEN.safeTransferFrom(msg.sender, address(this), c.total);
+        emit CampaignFunded(id, c.total, c.fundedAt);
+    }
 
     // ---------------- proof ----------------
 

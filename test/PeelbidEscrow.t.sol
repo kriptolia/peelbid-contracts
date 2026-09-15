@@ -427,4 +427,115 @@ contract PeelbidEscrowTest is Test {
         vm.expectRevert();
         escrow.setCampaignCreator(stranger);
     }
+// Append to test/PeelbidEscrow.t.sol.
+// Delete the file's final closing brace first — this block ends with one.
+
+    // ---------------- fundOnBehalf ----------------
+
+    function test_FundOnBehalfWorksForCreator() public {
+        address auction = makeAddr("auction");
+        escrow.setCampaignCreator(auction);
+        _create(ID, TOTAL);
+
+        usdc.mint(auction, TOTAL);
+        vm.startPrank(auction);
+        usdc.approve(address(escrow), TOTAL);
+        escrow.fundOnBehalf(ID);
+        vm.stopPrank();
+
+        assertEq(usdc.balanceOf(address(escrow)), TOTAL);
+        assertEq(escrow.totalEscrowed(), TOTAL);
+    }
+
+    function test_FundOnBehalfLeavesSponsorAsTheBrand() public {
+        // The whole point: refunds must reach the brand, not the auction.
+        address auction = makeAddr("auction");
+        escrow.setCampaignCreator(auction);
+        _create(ID, TOTAL);
+
+        usdc.mint(auction, TOTAL);
+        vm.startPrank(auction);
+        usdc.approve(address(escrow), TOTAL);
+        escrow.fundOnBehalf(ID);
+        vm.stopPrank();
+
+        (, address s,,,,,,,) = escrow.campaigns(ID);
+        assertEq(s, sponsor);
+
+        uint256 before = usdc.balanceOf(sponsor);
+        skip(15 days);
+        vm.prank(sponsor);
+        escrow.reclaimUnapplied(ID);
+
+        assertEq(usdc.balanceOf(sponsor), before + TOTAL);
+        assertEq(usdc.balanceOf(auction), 0);
+    }
+
+    function test_FundOnBehalfRevertsForStranger() public {
+        _create(ID, TOTAL);
+        usdc.mint(stranger, TOTAL);
+        vm.startPrank(stranger);
+        usdc.approve(address(escrow), TOTAL);
+        vm.expectRevert(PeelbidEscrow.NotCreator.selector);
+        escrow.fundOnBehalf(ID);
+        vm.stopPrank();
+    }
+
+    function test_FundOnBehalfRevertsForOwner() public {
+        // Excluded deliberately. A human has no reason to route money this way.
+        _create(ID, TOTAL);
+        usdc.mint(address(this), TOTAL);
+        usdc.approve(address(escrow), TOTAL);
+        vm.expectRevert(PeelbidEscrow.NotCreator.selector);
+        escrow.fundOnBehalf(ID);
+    }
+
+    function test_FundOnBehalfRevertsTwice() public {
+        address auction = makeAddr("auction");
+        escrow.setCampaignCreator(auction);
+        _create(ID, TOTAL);
+
+        usdc.mint(auction, TOTAL * 2);
+        vm.startPrank(auction);
+        usdc.approve(address(escrow), TOTAL * 2);
+        escrow.fundOnBehalf(ID);
+        vm.expectRevert(PeelbidEscrow.BadState.selector);
+        escrow.fundOnBehalf(ID);
+        vm.stopPrank();
+    }
+
+    function test_FundOnBehalfRespectsTotalCap() public {
+        address auction = makeAddr("auction");
+        escrow.setCampaignCreator(auction);
+
+        for (uint256 i; i < 10; ++i) {
+            bytes32 id = keccak256(abi.encode("bulk", i));
+            _create(id, 500e6);
+            vm.prank(sponsor);
+            escrow.fund(id);
+        }
+        assertEq(escrow.totalEscrowed(), 5_000e6);
+
+        _create(ID, 1e6);
+        usdc.mint(auction, 1e6);
+        vm.startPrank(auction);
+        usdc.approve(address(escrow), 1e6);
+        vm.expectRevert(PeelbidEscrow.TotalCapExceeded.selector);
+        escrow.fundOnBehalf(ID);
+        vm.stopPrank();
+    }
+
+    function test_FundOnBehalfRevertsWhenPaused() public {
+        address auction = makeAddr("auction");
+        escrow.setCampaignCreator(auction);
+        _create(ID, TOTAL);
+        escrow.pause();
+
+        usdc.mint(auction, TOTAL);
+        vm.startPrank(auction);
+        usdc.approve(address(escrow), TOTAL);
+        vm.expectRevert();
+        escrow.fundOnBehalf(ID);
+        vm.stopPrank();
+    }
 }
