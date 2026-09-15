@@ -1,5 +1,18 @@
 # Arc mainnet — 16 September
 
+> **Updated 15 September.** Two things changed since this was written.
+>
+> **Deploy escrow v2, not v1.** It adds a `campaignCreator` role and
+> `fundOnBehalf`, both needed by the auction contract. It also compiles through
+> via-IR now, so the bytecode differs from what is verified on Base mainnet and
+> the testnets today. All three chains get redeployed; the old addresses stay
+> on-chain and are listed at the bottom so nobody mistakes one for current.
+>
+> **The auction contract does not go out tomorrow.** It is one day old. 52
+> tests and 4 invariants pass, and one of those invariants found a real bug on
+> its first run — which is the argument for letting it live on testnet before
+> it holds anyone's deposit. Escrow only.
+
 Written on 11 September so that nothing has to be worked out on the day.
 
 Everything below has been rehearsed on Arc testnet. The contract is the same bytecode already verified on Base mainnet, Base Sepolia and Arc testnet. What is *not* rehearsed is three unknowns, and they are checked first.
@@ -183,11 +196,50 @@ The component already handles a network with no campaign. Update the header stat
 
 ---
 
+## Redeploy Base as well
+
+Base mainnet holds no funds and has no campaigns, so replacing it costs
+nothing but gas and about ten minutes. Doing it now means all three chains run
+the same bytecode; doing it after the first real campaign would mean migrating
+live money.
+
+```bash
+source .env
+USDC_ADDRESS=$BASE_USDC \
+ARBITER_ADDRESS=$SAFE_ADDRESS \
+FEE_RECIPIENT_ADDRESS=$SAFE_ADDRESS \
+DEPLOYER_PRIVATE_KEY=$MAINNET_DEPLOYER_KEY \
+forge script script/Deploy.s.sol:Deploy --rpc-url $BASE_MAINNET_RPC --broadcast -vvv
+```
+
+Then verify, then transfer ownership, exactly as for Arc.
+
+Base Sepolia and Arc testnet get the same treatment, but there is no rush:
+their campaigns are finished or finishing, and the site can point at either
+version. Do them when convenient.
+
+**Superseded addresses.** Record these so a future reader doesn't take one for
+the live contract:
+
+| Chain | v1 address | Status |
+|---|---|---|
+| Base mainnet | `0xf78257D41C8e78dD19e941146B58ebe9f9726635` | retired, never funded |
+| Base Sepolia | `0x88064FC8D03f8745Fd131CFc2D902Bc1e2502A77` | retired, one campaign completed |
+| Arc testnet | `0xFE9b1D63552FE9566178E4d6dcd86A2222b52227` | retired, one campaign running |
+
+---
+
 ## Do not fund a campaign on the 16th
 
 Deploy, verify, hand over ownership, announce. Nothing goes into the contract that day.
 
-`release()` has never paid out on a real chain. Base Sepolia's window closes on the 14th and Arc testnet's on the 15th; until both have completed and the money has landed where it should, putting real funds in a mainnet contract means the first campaign rides on a cycle that has never finished anywhere.
+Both testnet releases have now happened — Base Sepolia on the 14th, Arc
+testnet on the 15th, the second one triggered by the keeper on its schedule
+with nobody watching. So the cycle *has* been proven.
+
+What has not been proven is **this build**. Escrow v2 is new code compiled a
+new way, and it will be hours old. Give it a campaign on testnet first and let
+a tranche release from it before any real money goes near the mainnet copy.
 
 A small real campaign on Arc can follow a few days later, and it will be a better announcement then — a funded campaign with a working release behind it says more than an empty contract on launch day.
 
@@ -195,7 +247,12 @@ A small real campaign on Arc can follow a few days later, and it will be a bette
 
 ## The two days before
 
-**14 September, 19:24 Istanbul.** Base Sepolia's challenge window closes. Run the keeper with `DRY_RUN=false`:
+**14 September — done.** Base Sepolia's first tranche released: 2.76 USDC to
+the owner, 0.24 in fee, 9 USDC still held. Triggered by hand after the keeper's
+repository variables turned out not to reach the job; that is fixed, and config
+now lives in the workflow file where it can't go missing.
+
+For reference, the manual path:
 
 ```bash
 cd ~/dev/peelbid-keeper
@@ -207,7 +264,9 @@ Expect: 2.76 USDC to the owner, 0.24 to the fee recipient, 9 USDC left in escrow
 
 This is the last unproven step in the entire lifecycle, and it doubles as the keeper's first real run. Two things proven in one transaction.
 
-**15 September.** Arc testnet's first tranche comes due. Same command, and it confirms the release path works on Arc specifically — worth knowing the day before deploying there.
+**15 September — done.** Arc testnet's first tranche released. The keeper did
+it on its own schedule, which is the first time the whole thing ran end to end
+without a person involved.
 
 Also on the 15th: activate the Safe on Arc, fund the deploy wallet, and have the announcement drafts ready. Leave nothing for the morning except the three checks.
 

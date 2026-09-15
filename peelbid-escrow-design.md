@@ -1,6 +1,6 @@
 # peelbid — escrow and data model
 
-**Status:** live on three chains · marketplace working end to end · 14 September 2026
+**Status:** escrow v2 and the auction contract written and tested · Arc mainnet tomorrow · 15 September 2026
 **Purpose:** settle the mechanics on paper before any Solidity is written.
 
 ---
@@ -724,3 +724,87 @@ Rebuilt so it holds one line and one shape in both auth states. Signing in used 
 - **No expiry on bids.** They stay open indefinitely. The 48-hour payment window in §5 depends on escrow, which is still manual.
 - **No public directory of listings.** A published listing has its own page and no way to be found from the site. This is the most visible remaining gap on the demand side.
 - **Nothing links an approved bid to `createCampaign`.** The operator reads the approval and sets the campaign up from the Safe.
+
+---
+
+## 16. On-chain bidding
+
+Decided 13 September, built 14–15 September. Full design in `auction-design.md`.
+
+The site's bidding works and is entirely off-chain. This replaces it with two
+contracts that settle without us: `PeelbidAuction` holds deposits and, when an
+owner approves a winner, creates and funds the campaign in `PeelbidEscrow`
+inside a single transaction.
+
+### Escrow v2, and why it had to come first
+`createCampaign` was `onlyOwner`, meaning the Safe. An auction contract that
+settles a won panel must create the campaign holding the money, and couldn't.
+
+Two bad answers and one good one. Giving the auction contract ownership hands
+it `pause`, `setArbiter` and everything else to obtain one function. Letting it
+hold the money itself means writing escrow logic twice and holding funds in two
+places. Instead there is a narrow `campaignCreator` role that may call
+`createCampaign` and nothing else, appointed and revocable by the Safe in one
+transaction.
+
+`fundOnBehalf` came out of the same work. `fund()` requires
+`msg.sender == campaign.sponsor`, and at settlement the winner's money sits in
+the auction contract, not with the brand. Naming the auction as sponsor would
+have "fixed" it and broken every refund path in the escrow — `terminate`,
+`resolve`, `reclaimUnapplied` and `reclaimMissedTranche` all pay
+`campaign.sponsor`, so refunds would have gone to a contract instead of the
+brand that paid. `fundOnBehalf` pulls from the caller and leaves the sponsor as
+the brand.
+
+Found before deployment, which is the only reason it was cheap.
+
+### Two things the tests found that reasoning didn't
+
+**A run length nobody could bid on.** `MAX_BID` is 500 USDC because the escrow
+won't hold a larger campaign. At the 50 USDC floor a twelve-month run needs 600
+USDC, so it cannot exist — and an owner could tick "12 months", go live, and
+never learn why no bid arrived. `openAuction` now rejects a run mask it can't
+honour, and `longestRunAt(floorRate)` lets the site show the ceiling first.
+
+Surfaced by a scenario test using a twelve-month bid and reverting with
+`BidTooLarge`. The test wasn't wrong; the design was.
+
+**Money owed to nobody.** Ranking is by monthly rate and the deposit follows
+the total, so a bidder can improve their offer while locking *less*: six months
+at 300 is 50 a month, one month at 60 is 60 a month on a fifth of the money.
+`_reprice` wrote the smaller deposit and left `totalHeld` alone, stranding the
+difference — held by the contract, owed to no one.
+
+An invariant caught it on its first run, in a three-call sequence. No scenario
+test would have, because writing one requires first thinking the sentence
+"a bidder raises their bid and locks less", and nobody thinks it.
+
+**This is the argument for invariants in one paragraph.** Scenario tests check
+the paths you imagined. Invariants check that no ordering of any paths, in
+16,384 random calls, breaks the accounting.
+
+### Coverage
+| Suite | Tests |
+|---|---|
+| `PeelbidEscrow.t.sol` | 39 scenarios |
+| `EscrowInvariants.t.sol` | 4 invariants |
+| `PeelbidAuction.t.sol` | 52 scenarios |
+| `AuctionInvariants.t.sol` | 4 invariants |
+
+Auction invariants: the balance equals live deposits plus what is owed;
+`totalHeld` matches the deposits that actually exist; the cap holds; and the
+contract can always pay what it owes.
+
+### via-IR
+`PeelbidAuction` holds a fourteen-field struct and calls a seven-argument
+function. The legacy pipeline runs out of stack slots, and the error names no
+function. `via_ir = true` with the optimizer is the normal setting for a
+contract this shape.
+
+It changes the escrow's bytecode too, which is fine only because v2 is a fresh
+deployment everywhere. It would not have been fine if v1 were staying put.
+
+### Not deployed yet
+The auction contract is a day old. It goes to testnet first and holds nobody's
+deposit until it has run a full cycle there. Arc mainnet tomorrow is escrow v2
+alone, with `campaignCreator` left unset.

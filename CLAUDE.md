@@ -19,7 +19,7 @@ Full design: peelbid-escrow-design.md (read it before touching the contract).
 - USDC has 6 decimals.
 - Checks-effects-interactions always. nonReentrant on anything moving tokens.
 
-## Status (14 Sep 2026)
+## Status (15 Sep 2026)
 LIVE ON BASE MAINNET, verified, owned by the Safe.
   Address: 0xf78257D41C8e78dD19e941146B58ebe9f9726635
   Chain:   8453
@@ -52,11 +52,18 @@ NEXT DATES, both load-bearing:
     sits on the same ad-blocked arc.io domain.
     DO NOT fund a campaign on the 16th.
 
-AFTER ARC: the auction contract. Decided 13 Sep — bids and deposits go
-fully on-chain, escrow v2 with a `campaignCreator` role so the auction
-contract can call createCampaign without owning the escrow, and refunds
-on a withdrawal pattern so a hostile bidder can't block being outbid.
-Escrow must be redeployed; mainnet holds no funds yet, so now is the moment.
+ESCROW V2 + AUCTION: written and tested 14-15 Sep. See design doc §16 and
+auction-design.md. 39+52 scenario tests, 8 invariants, all green.
+  Escrow v2 adds campaignCreator (narrow role, Safe-appointed, revocable)
+  and fundOnBehalf (auction funds the campaign; sponsor stays the brand,
+  so every refund path still pays the right address).
+  via_ir = true is now required — the auction won't compile without it.
+
+16 Sep deploys ESCROW V2 ONLY. The auction contract is a day old and goes
+to testnet first. Leave campaignCreator at the zero address.
+
+Redeploy Base mainnet too — it holds no funds, so it costs ten minutes now
+and a migration later.
 
 Then: builder mockup renderer, scale calibration, proof feed.
 
