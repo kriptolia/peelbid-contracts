@@ -19,7 +19,7 @@ Full design: peelbid-escrow-design.md (read it before touching the contract).
 - USDC has 6 decimals.
 - Checks-effects-interactions always. nonReentrant on anything moving tokens.
 
-## Status (15 Sep 2026)
+## Status (16 Sep 2026)
 LIVE ON BASE MAINNET, verified, owned by the Safe.
   Address: 0xf78257D41C8e78dD19e941146B58ebe9f9726635
   Chain:   8453
@@ -59,11 +59,25 @@ auction-design.md. 39+52 scenario tests, 8 invariants, all green.
   so every refund path still pays the right address).
   via_ir = true is now required — the auction won't compile without it.
 
-16 Sep deploys ESCROW V2 ONLY. The auction contract is a day old and goes
-to testnet first. Leave campaignCreator at the zero address.
+ARC MAINNET — DONE, 16 Sep, day one.
+  0xCDfad58266dAe603c542984A7C8e8e72b8c617C9  (chain 5042)
+  Verified. Safe-owned. campaignCreator = 0, deliberately.
+  Deploy cost 0.068 USDC.
+  USDC on Arc mainnet is 0x3600...0000, same as testnet. RPC is
+  https://rpc.mainnet.arc.io (NOT rpc.arc.io — that doesn't resolve).
 
-Redeploy Base mainnet too — it holds no funds, so it costs ten minutes now
-and a migration later.
+GAS ON ARC: mainnet is ~35 gwei, about 300x cheaper than the testnet
+figures we measured in launch week. Our per-campaign cost is cents, not
+2.43 USDC. The plan to raise the Arc floor price above 50 USDC is
+WITHDRAWN — design doc §9 and §13 warnings no longer apply.
+Lesson: a testnet measured the week before its mainnet opens tells you
+about the crowd, not the chain.
+
+STILL TO DO:
+  Redeploy Base mainnet, Base Sepolia and Arc testnet on v2. None hold
+  funds worth migrating; ten minutes each now, a migration later.
+  Superseded v1 addresses are listed in arc-mainnet-runbook.md.
+  Auction contract to testnet, full cycle, before it holds any deposit.
 
 Then: builder mockup renderer, scale calibration, proof feed.
 
@@ -151,7 +165,9 @@ Keeper wallet: 0x46fD85467f739b3A41B29Bd603DD47E8e86FD90A
   by knowing its URL. Biggest visible gap on the demand side.
 - Bids never expire.
 - Nothing connects an approved bid to createCampaign. The operator reads the
-  approval and sets the campaign up from the Safe by hand.
+  approval and sets the campaign up from the Safe by hand. The auction
+  contract closes this gap once campaignCreator is appointed.
+- Nothing is funded on Arc mainnet. The contract is hours old.
 - No keeper bot. Contracts don't self-execute; a due tranche sits unpaid
   until someone calls release(). Permissionless by design, but users need
   a claim button plus a bot that sweeps daily.

@@ -1,4 +1,17 @@
-# Arc mainnet — 16 September
+# Arc mainnet — 16 September · DONE
+
+> Deployed at `0xCDfad58266dAe603c542984A7C8e8e72b8c617C9`, block 21149738,
+> verified, Safe-owned, `campaignCreator` unset. Cost 0.068 USDC.
+>
+> Kept as the procedure for the three redeployments still outstanding — Base
+> mainnet, Base Sepolia, Arc testnet — and as the record of what the three
+> pre-flight checks were for.
+>
+> **What the checks caught:** the RPC is `rpc.mainnet.arc.io`, not
+> `rpc.arc.io`, which doesn't resolve. Chain id is 5042, not the testnet's
+> 5042002. USDC is the same `0x3600…0000` predeploy on both. And gas was 35
+> gwei rather than the thousands we saw on testnet, which retired a pricing
+> concern we'd been carrying for a week.
 
 > **Updated 15 September.** Two things changed since this was written.
 >

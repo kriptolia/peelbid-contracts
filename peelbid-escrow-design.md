@@ -1,6 +1,6 @@
 # peelbid — escrow and data model
 
-**Status:** escrow v2 and the auction contract written and tested · Arc mainnet tomorrow · 15 September 2026
+**Status:** escrow v2 live on Arc mainnet, day one · 16 September 2026
 **Purpose:** settle the mechanics on paper before any Solidity is written.
 
 ---
@@ -381,6 +381,40 @@ Handler drives nine actions in random order across 256 runs × 64 steps. After e
 2. `USDC balance >= totalEscrowed`
 3. `totalEscrowed == Σ outstanding(id)`
 4. `Σ total − Σ paidOut − Σ refunded == totalEscrowed`
+
+### Deployed — Arc mainnet
+| | |
+|---|---|
+| Contract | `0xCDfad58266dAe603c542984A7C8e8e72b8c617C9` |
+| Chain | Arc (5042) |
+| Deploy tx | `0xe8f4a9f48663d2e3621c8cde97f8bde3847d471bc1b33dd09b72612349f57899` |
+| Block | 21149738 · 16 Sep 2026, the day Arc's public mainnet opened |
+| USDC | `0x3600000000000000000000000000000000000000` |
+| Owner / arbiter / fee recipient | `0xc2C9F41778Dda1dd38C6D0b08eC730D675c7bA2C` (Safe) |
+| `campaignCreator` | zero — deliberately unset |
+| Source | Verified |
+| Cost | **0.068 USDC** |
+
+This is escrow **v2**: the `campaignCreator` role and `fundOnBehalf`, compiled through via-IR. Deployed from a wallet used for nothing else, handed to the Safe in the same session.
+
+`campaignCreator` stays at zero until the auction contract has run a full cycle on testnet. Until then v2 behaves exactly as v1 did — only the Safe can create a campaign.
+
+### Gas on Arc: the testnet numbers were wrong
+
+The measurements in §9 said our own cost would be about 2.43 USDC per campaign, and that a 50 USDC campaign would lose 60% of its fee to gas. That was going to force a higher floor price on Arc.
+
+Mainnet, day one:
+
+| | Testnet | Mainnet |
+|---|---|---|
+| Gas price | 2,800–16,000 gwei | **35 gwei** |
+| Deploying the escrow | 20.95 USDC | **0.068 USDC** |
+
+Three hundred times cheaper. The testnet figures were launch-week congestion, not the fee model — Circle's designed base fee is what mainnet actually charges.
+
+**So the floor stays at 50 USDC on Arc.** The §13 note about raising it, and the §9 warning about campaign economics, are both withdrawn.
+
+Worth remembering as a general point: a testnet measured in the week before its mainnet opens tells you about the crowd, not about the chain.
 
 ### Deployed — Base mainnet
 | | |
