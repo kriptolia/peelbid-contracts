@@ -19,7 +19,7 @@ Holds a campaign's USDC and releases it in tranches against proof.
 
 | Network | Address | |
 |---|---|---|
-| Arc (5042) | [`0xCDfad58266dAe603c542984A7C8e8e72b8c617C9`](https://arcscan.app/address/0xCDfad58266dAe603c542984A7C8e8e72b8c617C9) | verified · Safe-owned · deployed on Arc's launch day |
+| Arc (5042) | [`0xCDfad58266dAe603c542984A7C8e8e72b8c617C9`](https://explorer.arc.io/address/0xCDfad58266dAe603c542984A7C8e8e72b8c617C9) | verified · Safe-owned · deployed on Arc's launch day |
 | Base (8453) | [`0xf78257D41C8e78dD19e941146B58ebe9f9726635`](https://basescan.org/address/0xf78257D41C8e78dD19e941146B58ebe9f9726635) | verified · Safe-owned |
 | Arc testnet | [`0x74a0610c0d27744e704f5032edd1d2abbaf7a8a3`](https://testnet.arcscan.app/address/0x74a0610c0d27744e704f5032edd1d2abbaf7a8a3) | v2, paired with the auction |
 | Base Sepolia | [`0x88064FC8D03f8745Fd131CFc2D902Bc1e2502A77`](https://sepolia.basescan.org/address/0x88064FC8D03f8745Fd131CFc2D902Bc1e2502A77) | one campaign completed |
