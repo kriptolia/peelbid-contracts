@@ -526,8 +526,9 @@ Verified against both testnets on 9 September — countdowns matched the site's 
 ## 10. Decisions still open
 
 1. **Multi-panel bidding** — can one sponsor take five panels on one object at once, or is that five separate auctions? Defaulting to separate.
-2. **Fee-share percentage for Peels** — 10% of year-one protocol fees is the working proposal, not yet committed publicly. See §12.
-3. **Floor price on Arc** — 50 USDC works on Base where gas is negligible. On Arc, where our own gas runs ~2.43 USDC per campaign, a 50 USDC campaign gives up 60% of the fee. Either raise the Arc floor to 75–100 USDC or move release gas onto the owner.
+2. **Whether an owner can offer a twelve-month run at the minimum floor.** They currently cannot: at 50 USDC a month the total exceeds `MAX_CAMPAIGN`, so `openAuction` refuses the run mask. Both limits lift together after an audit, and the constraint disappears on its own.
+
+*Withdrawn:* raising the floor price on Arc. That was based on testnet gas figures of 2,800–16,000 gwei, which turned out to be launch-week congestion. Mainnet runs at about 35 gwei — deploying the escrow cost 0.068 USDC — so the campaign economics that prompted it never existed.
 
 Resolved since the first draft: artwork rejection (artwork now arrives with the bid), auction length (owner-set), freshness token (system-generated), chain order (both — same bytecode, Base mainnet and Arc from launch day).
 
@@ -565,209 +566,9 @@ A bounty is not a substitute for an audit. An audit is paying for the code to be
 
 ---
 
-## 12. Peels — the waitlist points programme
-
-Built in-house on Vercel serverless functions plus Supabase, not on a quest platform. The people on the list are the first users; that relationship should not be rented from a third party.
-
-### Mechanics
-| Action | Peels |
-|---|---|
-| Join with an email | 25 |
-| Add an X handle | 10 |
-| Each signup through your referral link | 50 |
-| Approved real listing *(when listing opens)* | largest allocation, not yet set |
-
-Email is the login — entering an existing address returns that account rather than erroring. X handles are unverified by design; the cost of gaming that is 10 Peels and the friction of verification would cost more.
-
-### What Peels are for
-Early-access order, Founding Lister status (zero fee on a first campaign, featured placement, a badge), and **a share of protocol fees paid in USDC**. Working proposal: 10% of year-one fees, distributed periodically. Not yet stated publicly as a number.
-
-Stating the fee share upfront was the decision that made this programme defensible. Most points programmes leave the reward vague, which lets participants price in a token that may never come; when it doesn't, the anger lands on whoever is publicly identifiable. A concrete reward — a share of real revenue, in dollars — gives farmers something real to want and gives us something we can actually deliver.
-
-### Guardrails
-Peels cannot be bought, sold or transferred, carry no value outside the programme, and are not a token or a security. The site says this in the footer. **No token is promised, and none is denied** — the honest position is that nothing has been decided, and pretending otherwise in either direction would be a mistake.
-
-The largest allocations are reserved for approved real listings. This is what stops the leaderboard filling with accounts that will never apply a sticker: the escrow already refuses to pay anyone who doesn't do the physical work, so an account farming referrals tops out well below an account that lists a real object.
-
-**Get a lawyer to look at the fee-share mechanic before the first payout.** Discretionary rebates to a promotional programme are not obviously a security, but "not obviously" is not a legal opinion.
-
 ---
 
-## 13. Machine assistance in the listing flow
-
-Recorded early so the site gets built with room for it. Not scheduled.
-
-**The rule: none of this is ever labelled "AI".** The listing builder should feel like it works well. The moment a badge says AI-powered, a real capability reads as a trend signal, and this project's whole position is that it doesn't chase those.
-
-### The bottleneck this addresses
-A listing is only worth bidding on if a sponsor can see what they're buying — the exact surface, at true size, with their own artwork on it. Asking an owner to do that by hand means measuring panels with a tape and drawing rectangles on a photo. Most people will abandon it, and the ones who don't will produce listings nobody trusts.
-
-### Four candidates, ranked
-
-**1. The mockup — and it needs no model at all.**
-Render the sponsor's artwork onto the owner's actual photo, at correct scale and perspective. Highest value of anything on this list: a sponsor who can see their logo on the real car bids with confidence, and the resulting image is the single most shareable artefact the product creates.
-
-The owner already draws a quad around the panel. Four corners plus a known real-world size is a homography — plain geometry, no inference, no per-call cost, runs in the browser. **Build this first and be suspicious of anyone who reaches for a model here.**
-
-**2. Scale from a known reference.**
-The most tedious step is asking for one real measurement. Number plates are standardised — 520×110 mm across the EU and Turkey. Detect the plate in a vehicle photo and every other dimension follows. For non-vehicles, fall back to asking.
-
-Small, well-scoped detection problem. High payoff: it removes the step most likely to make someone quit.
-
-**3. Panel suggestion.**
-Segment the photo into flat, usable surfaces and propose panels — door, tailgate, rocker strip — which the owner then adjusts. Turns a blank canvas into an edit, and edits get finished while blank canvases get abandoned.
-
-Harder, and it must never be authoritative. The owner's adjustment is the truth; the suggestion is a starting point. If it proposes a panel spanning a door shut, the print spec in §7b is violated and we've taught someone to do the wrong thing.
-
-**4. Proof checking.**
-Compare a monthly proof against the application photo: is the sticker still there, on the right panel, and is this a fresh capture rather than a reused one? Strategically the most valuable — verification is the gap the whole category has left open (§ opening) — and the hardest to get right.
-
-Assistive only, permanently. It flags a proof for human review; it never rejects one. A false rejection costs an owner a tranche they earned, and the contract has no way to undo that once released. The seven-day challenge window already gives the sponsor a human check; this only decides what a reviewer looks at first.
-
-### Explicitly not doing
-Chatbots. Agents that bid on anyone's behalf — nobody wants software spending their money on stickers. Anything "agentic" that exists to be described as agentic. Auto-approving sponsors: the owner's veto is the product's premise, and delegating it to a model gives away the thing being sold.
-
-### Cost discipline
-Our own gas already runs ~2.43 USDC per campaign on Arc against a 4 USDC fee on a 50 USDC campaign. Per-call inference on every listing view would not survive that. Ranked order above is roughly cheapest-to-costliest, which is not a coincidence: do the geometry first, add models only where they replace work a person would otherwise abandon.
-
-### Sequence
-Mockup renderer ships with the listing builder. Plate-based scale next, as a shortcut with a manual fallback. Panel suggestion and proof checking after there are real listings and real proofs to test against — building either on imagined inputs would be guessing twice.
-
----
-
-## 14. The site
-
-`peelbid.com` runs on Next.js (App Router, JavaScript, no TypeScript, no Tailwind), deployed from the private `peelbid-web` repo. The old single-file static site is retired; its Vercel project is kept for a few days as a rollback and then deleted.
-
-### Why the rewrite
-Not for looks — the design carried over almost unchanged. Every new page was becoming a copied HTML file with its own duplicated stylesheet, and the listing pages alone would have needed one file per listing. That collapses at the fifth listing. Now `app/examples/[slug]` renders any number of listings from data, and `globals.css` holds every design token in one place.
-
-Three libraries went with it: GSAP, ScrollTrigger and Lenis, replaced by about thirty lines of our own (one IntersectionObserver for reveals, one `requestAnimationFrame` loop for the peeling sticker, CSS `scroll-behavior` for smooth scroll).
-
-### Shape
-```
-app/
-  page.js                     home — hero, capabilities, waitlist, leaderboard, escrow
-  examples/page.js            index of worked examples
-  examples/[slug]/page.js     one example listing
-  builder/page.js             the listing builder
-  privacy/page.js
-  api/join/route.js           waitlist join, Peels award
-  api/leaderboard/route.js    paginated board, ten per page
-components/    Header Footer Mark RegMarks TitleBlock PanelMap
-               Sticker Marquee Reveal Waitlist Leaderboard LiveEscrow
-lib/           examples.js  listings.js
-```
-
-**Next 15 gotcha, worth remembering:** `params` in a dynamic route is a Promise. `params.slug` read directly is undefined, the page calls `notFound()`, and you get a 404 with no error. Every dynamic page needs `const { slug } = await params;` in an `async` component.
-
-### Worked examples
-Four listings at `/examples`: a car, a laptop lid, a backpack, a cabin suitcase. Real photographs (Unsplash and Pexels, commercial-use licensed), panels marked with the builder itself, real centimetre sizes, floor prices from 45 to 180 USDC.
-
-Each carries three pieces of teaching the product depends on:
-- **Context** — where the object goes, how often, who sees it. Specific enough that it couldn't be pasted onto someone else's listing.
-- **A pitch in the owner's voice** — the argument for why a brand should pick this object. This is the field most owners will skip and the one sponsors actually read.
-- **A lesson** — one thing this example gets right or wrong. The car's lesson is that our own photograph is bad: shot from a low three-quarter angle, so the side is compressed and the bonnet reads as a sliver.
-
-**Nothing is bookable.** No CLAIM button anywhere. A live-looking button on an example generates a click and then disappointment; the only call to action is the waitlist.
-
-### Panel geometry: how it's actually done
-Quads are four `[x, y]` pairs as fractions of the image, so they hold at any render size. The listing page draws them as an SVG overlay with `viewBox="0 0 100 100"` and `preserveAspectRatio="none"`.
-
-The first attempt had me estimating coordinates by eye from a gridded screenshot. Three rounds in, the car's door panel was still wrong. The fix was obvious in hindsight: **use the builder.** Two minutes of clicking beat an hour of guessing, and it was the tool's first real test — which is how the missing corner-drag got found.
-
-### Builder
-`/builder`. Load a photo, click four corners, then drag any corner to correct it. Name, centimetre size, floor price and note per panel. Exports normalised coordinates straight into the shape `lib/examples.js` expects. Everything is client-side; no photo leaves the browser.
-
-Still missing: scale calibration from a known reference (§13 item 2).
-
-### The mockup renderer: built, shelved
-`lib/warp.js` does the geometry correctly — a homography from the unit square to the panel's quad, subdivided into a 14×14 grid, each cell split into two triangles and affine-mapped. Corners land exactly where they should.
-
-It still doesn't convince, and the reason isn't geometry. A vinyl sticker on a real object picks up that surface's shading and sheen; artwork pasted flat reads as a photo taped on. Two attempts at fixing that:
-
-1. A `soft-light` plus weak `multiply` pass of the original photo, clipped to the quad. This introduced a visible triangular mesh, because drawing each triangle at 94% alpha let the deliberately-overlapping edges stack.
-2. Compositing offscreen at full alpha first, then relighting masked to the artwork's own alpha. The mesh went away and the lighting went too far — logos sank into the surface and looked washed out.
-
-The underlying problem is that one blend formula can't serve brushed aluminium, matte black canvas and painted car panel. Each needs different treatment.
-
-**Shelved, not deleted.** The code stays; listing pages just don't use it. The reference listing that prompted this work (coinempress) has no mockups either — numbered panels and real dimensions, and it reads as credible. An honest measurement beats a bad mockup.
-
-**When to revisit — and the answer changed.** The note here used to say this was probably an image-model job. Checked against what product-photography tooling actually does as of September 2026, that was wrong.
-
-The consistent failure of generative compositing is that it distorts *exactly* what must not change: "shapes, text, and logos on products are frequently distorted". A sponsor's logo is the one thing in the frame that has to survive byte for byte. A model that nails the lighting and subtly deforms the wordmark is worse than no mockup at all, because the owner won't catch it and the sponsor will.
-
-The industry's own answer is the approach already implemented here — keep the artwork's pixels untouched and composite them in, letting anything generative touch only the surroundings. `lib/warp.js` does that part correctly. What failed was relighting, which is a compositing problem.
-
-So: when it returns, it returns as better compositing — per-surface lighting parameters an owner sets once — not as a generated image.
-
----
-
-## 15. The marketplace
-
-Between 11 and 14 September the site went from a waiting list with a builder attached to something a person can actually use: sign in, list an object, receive bids, decide on them.
-
-### Accounts
-Privy, email only. An embedded wallet is created at sign-in and nothing uses it yet — no money moves through the site — but an owner needs somewhere for a campaign to pay out, and building a second auth system later would have been wasted work.
-
-**A trap worth recording:** in `@privy-io/react-auth` v2 the wallet config is nested under the chain type.
-
-```js
-embeddedWallets: { ethereum: { createOnLogin: "users-without-wallets" } }
-```
-
-A flat `createOnLogin` is the v1 shape. It is silently ignored — no warning, no error, no wallet. Two accounts existed for a day before anyone noticed they had no address.
-
-Server-side, `lib/privy.js` verifies the access token against the app's JWKS rather than trusting its contents, and `emailOf(did)` reads the email from Privy's API rather than from a request header a caller could set.
-
-### Who is on which side
-A single question at first sign-in — owner, brand, or both — stored in `profiles`. It decides which half of the dashboard leads, nothing more. The two halves look nothing alike and a brand landing on "Your listings · sign in to start" reads as a broken product.
-
-### The gate, and why it is asymmetric
-**Listing is invite-only**, opening from the waitlist in Peel order. `invited` on the waitlist row; the operator sets it by hand.
-
-**Bidding is open** to anyone signed in.
-
-The asymmetry is deliberate. Supply quality is what a marketplace is judged on — a bad listing damages every other listing, and the first ones set the standard. Demand is what we want more of, and making a brand queue before it can spend money is the seller keeping the customer at the door.
-
-A signed-in owner without an invite sees their Peel count, their rank, and an explanation. Somewhere to stand beats an email that may or may not arrive.
-
-### Bidding
-`bids`, one row per bid. Rules live in `lib/bids.js` so the API and the interface can't disagree about what a valid bid is.
-
-- **Ranked by monthly rate**, never by headline total. Without that a twelve-month offer always beats a one-month offer regardless of value, and the owner can't compare them. The bar to clear is a rate; the interface converts it to a total for whichever run length the bidder picks.
-- **Artwork arrives with the bid.** One approval covers the sponsor and the creative together, so there is no second step where a sponsor is accepted and their artwork then refused — which would leave money in escrow with nobody at fault.
-- **One live bid per bidder per panel.** Raising replaces.
-- Placing a bid marks everything below its rate `outbid`. Approving one rejects the rest and moves the panel to `reserved`.
-- **One revision request per bid.** The soft alternative to a flat no: say what would make it work.
-- The owner can decline without giving a reason. That is the premise, not a feature.
-
-**No deposit.** The design called for 10% locked at bid time (§5), which needs an auction contract we deliberately didn't write (§9). A bid here is a commitment, not money. The fake-bid risk that the deposit was meant to price is mitigated weakly — brand name and URL required, full history public — and properly only when the auction contract lands.
-
-**Panels go `reserved`, never `sold`, from the interface.** Sold means funded, and funding still happens by hand from the Safe.
-
-### Notifications
-Derived from the bids rather than kept in a feed of their own. A bid waiting on the owner *is* the notification and it clears when they decide; a decided bid is a notification for the bidder until they open it. One column, `seen_by_bidder_at`, carries the whole thing.
-
-A bell in the header, a per-listing badge on the dashboard so an owner doesn't have to open a listing to find out something is waiting, and a "Your bids" section — because a brand that bids and then has nowhere to go is a brand that doesn't bid twice.
-
-### A bug worth remembering
-`sbUpdate` appended `updated_at` to every patch. `listings` has that column, `bids` does not, so every bid decision failed with a 400 and the interface said "Couldn't save that decision."
-
-The helper now sends exactly the columns it is given. **A library that quietly adds things you didn't ask for will eventually break a table you weren't thinking about.**
-
-### The header
-Rebuilt so it holds one line and one shape in both auth states. Signing in used to add a bell, an email pill and a sign-out link, which pushed the row into wrapping. The account control is now a single circle that opens a menu, and the "Live on Base · Arc" pill was removed entirely — it was the main width culprit and the escrow section says the same thing with real numbers.
-
-### Still missing
-- **Email.** Nothing reaches anyone outside the site. An owner has to visit the dashboard to learn a bid arrived. For the first campaigns the operator tells them; it needs a mail service to be real.
-- **No expiry on bids.** They stay open indefinitely. The 48-hour payment window in §5 depends on escrow, which is still manual.
-- **No public directory of listings.** A published listing has its own page and no way to be found from the site. This is the most visible remaining gap on the demand side.
-- **Nothing links an approved bid to `createCampaign`.** The operator reads the approval and sets the campaign up from the Safe.
-
----
-
-## 16. On-chain bidding
+## 12. On-chain bidding
 
 Decided 13 September, built 14–15 September. Full design in `auction-design.md`.
 
@@ -851,7 +652,7 @@ alone, with `campaignCreator` left unset.
 
 ---
 
-## 17. The auction on a chain
+## 13. The auction on a chain
 
 Deployed to Arc testnet on 17 September, the day after Arc's mainnet opened.
 
