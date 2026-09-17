@@ -19,7 +19,7 @@ Full design: peelbid-escrow-design.md (read it before touching the contract).
 - USDC has 6 decimals.
 - Checks-effects-interactions always. nonReentrant on anything moving tokens.
 
-## Status (16 Sep 2026)
+## Status (17 Sep 2026)
 LIVE ON BASE MAINNET, verified, owned by the Safe.
   Address: 0xf78257D41C8e78dD19e941146B58ebe9f9726635
   Chain:   8453
@@ -73,8 +73,15 @@ WITHDRAWN — design doc §9 and §13 warnings no longer apply.
 Lesson: a testnet measured the week before its mainnet opens tells you
 about the crowd, not the chain.
 
+AUCTION LIVE ON ARC TESTNET — 17 Sep. See design doc §17.
+  Escrow v2  0x74a0610c0d27744e704f5032edd1d2abbaf7a8a3
+  Auction    0x3264107f701b0a3a8e241f75f18fbb7f2b3f8d84
+  campaignCreator is set. First cycle open: 300 USDC bid over 3 months,
+  30 USDC deposit held. Settlement waits on the 24h minimum.
+  Testnet only: deployer is its own arbiter. Never do that on mainnet.
+
 STILL TO DO:
-  Redeploy Base mainnet, Base Sepolia and Arc testnet on v2. None hold
+  Redeploy Base mainnet and Base Sepolia on v2. None hold
   funds worth migrating; ten minutes each now, a migration later.
   Superseded v1 addresses are listed in arc-mainnet-runbook.md.
   Auction contract to testnet, full cycle, before it holds any deposit.
@@ -144,7 +151,12 @@ viewBox 0 0 100 100 and preserveAspectRatio="none".
 Place them with /builder, never by estimating coordinates — that was tried
 and failed three times.
 
-## Machine assistance — see design doc §13
+## Site plan — see site-plan.md
+Order: email first (nobody is told anything today), then context-writing
+help in the builder, then wire the site to the auction contract, then
+panel suggestion + plate scale, then the proof feed.
+
+## Machine assistance — see design doc §13 and site-plan.md
 Planned, not scheduled. Never labelled "AI" anywhere in the product.
 Order: mockup renderer (pure homography, no model), plate-based scale,
 panel suggestion, proof checking. Proof checking is assistive only —
@@ -167,7 +179,12 @@ Keeper wallet: 0x46fD85467f739b3A41B29Bd603DD47E8e86FD90A
 - Nothing connects an approved bid to createCampaign. The operator reads the
   approval and sets the campaign up from the Safe by hand. The auction
   contract closes this gap once campaignCreator is appointed.
-- Nothing is funded on Arc mainnet. The contract is hours old.
+- Nothing is funded on Arc mainnet.
+- setArbiter and setCampaignCreator emit no event. Flagged by the linter,
+  still unfixed. Access control changing with no on-chain trace is a real
+  gap — fix it before the Base redeployments, that is the last cheap moment.
+- Four auction paths have never run on a chain: outbid-and-withdraw,
+  decline, missed payment, expiry.
 - No keeper bot. Contracts don't self-execute; a due tranche sits unpaid
   until someone calls release(). Permissionless by design, but users need
   a claim button plus a bot that sweeps daily.
@@ -179,7 +196,10 @@ Keeper wallet: 0x46fD85467f739b3A41B29Bd603DD47E8e86FD90A
 - Mockup renderer is BUILT but SHELVED — see design doc §14. The geometry in
   lib/warp.js is correct; the lighting isn't, and one blend formula can't
   serve aluminium, canvas and car paint. Don't retry with blend modes.
-  Probably an image-model job. Listing pages deliberately don't use it.
+  NOT an image-model job either — checked Sep 17. Generative compositing
+  distorts logos and text, which is the one thing that must not change.
+  When it returns it returns as better compositing with per-surface
+  lighting the owner sets, not as a generated image.
 - /builder is gated: ?key=peel-it opens it, remembered in localStorage.
 - Keeper runs by hand. Automate after 14–15 Sep.
 - No audit. The hard caps are the substitute.

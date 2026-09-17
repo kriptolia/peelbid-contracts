@@ -1,6 +1,6 @@
 # peelbid — escrow and data model
 
-**Status:** escrow v2 live on Arc mainnet, day one · 16 September 2026
+**Status:** escrow v2 on Arc mainnet · auction contract live on Arc testnet, first cycle running · 17 September 2026
 **Purpose:** settle the mechanics on paper before any Solidity is written.
 
 ---
@@ -693,7 +693,13 @@ The underlying problem is that one blend formula can't serve brushed aluminium, 
 
 **Shelved, not deleted.** The code stays; listing pages just don't use it. The reference listing that prompted this work (coinempress) has no mockups either — numbered panels and real dimensions, and it reads as credible. An honest measurement beats a bad mockup.
 
-**When to revisit:** this is probably an image-model job rather than a blend-mode job — give a model the surface photo and the artwork and ask for the composite. That means per-call cost and latency, so it needs real listings to justify it. Revisit after launch, not before.
+**When to revisit — and the answer changed.** The note here used to say this was probably an image-model job. Checked against what product-photography tooling actually does as of September 2026, that was wrong.
+
+The consistent failure of generative compositing is that it distorts *exactly* what must not change: "shapes, text, and logos on products are frequently distorted". A sponsor's logo is the one thing in the frame that has to survive byte for byte. A model that nails the lighting and subtly deforms the wordmark is worse than no mockup at all, because the owner won't catch it and the sponsor will.
+
+The industry's own answer is the approach already implemented here — keep the artwork's pixels untouched and composite them in, letting anything generative touch only the surroundings. `lib/warp.js` does that part correctly. What failed was relighting, which is a compositing problem.
+
+So: when it returns, it returns as better compositing — per-surface lighting parameters an owner sets once — not as a generated image.
 
 ---
 
@@ -842,3 +848,54 @@ deployment everywhere. It would not have been fine if v1 were staying put.
 The auction contract is a day old. It goes to testnet first and holds nobody's
 deposit until it has run a full cycle there. Arc mainnet tomorrow is escrow v2
 alone, with `campaignCreator` left unset.
+
+---
+
+## 17. The auction on a chain
+
+Deployed to Arc testnet on 17 September, the day after Arc's mainnet opened.
+
+| | |
+|---|---|
+| Escrow v2 | `0x74a0610c0d27744e704f5032edd1d2abbaf7a8a3` |
+| `PeelbidAuction` | `0x3264107f701b0a3a8e241f75f18fbb7f2b3f8d84` |
+| Link | `setCampaignCreator` — `CampaignCreatorChanged(0x0 → 0x3264…)` |
+
+Escrow v2 had to go first: the auction calls `fundOnBehalf`, which v1 doesn't have.
+
+On testnet the deployer is its own arbiter and fee recipient, which makes the walkthrough one wallet instead of three. Never on mainnet.
+
+### The first cycle
+
+Opened at a 50 USDC monthly floor, runs 1/3/6, 24 hours, 8% fee. Then one bid: 300 USDC over three months, artwork hash attached.
+
+What the chain confirmed, read straight off the logs:
+
+- `AuctionOpened` carries floor `0x2faf080` (50 USDC) and mask `7` — the run lengths the owner will accept, as a bitmask.
+- `minimumBid(id, 3)` returns exactly `150000000`. Three months at the floor.
+- `BidPlaced` records the total, the run length, **and the monthly rate the contract derived** — `0x5f5e100`, 100 USDC. Ranking is on-chain, not a convention the site upholds.
+- `totalHeld` is `30000000`. The deposit is real money the contract is holding, not a promise in a database.
+
+Settlement waits on the 24-hour minimum. `MIN_DURATION` exists so an owner can't open, tip off a friend and close before anyone else notices, and it is now inconveniencing us exactly as designed.
+
+### Arc's double Transfer log, again
+Funding the deposit emitted two transfers for one movement: the EIP-7708 system emitter at `0xffff…fffe` in 18 decimals, and the ERC-20 contract in 6. Same 30 USDC, twice.
+
+Noted in §9 and still true. Any indexer reading auction deposits has to filter by emitter or it will double-count every one of them.
+
+### What settlement has to prove
+
+The tests assert it and the chain hasn't yet:
+
+| Check | Expected | Why it matters |
+|---|---|---|
+| `totalHeld` | 0 | the deposit stops being held |
+| USDC in the auction | **0** | it never sits on campaign money |
+| USDC in the escrow | 300000000 | the balance went through in one transaction |
+| Campaign sponsor | **the brand** | every refund path pays `campaign.sponsor` |
+| Tranches | 4 | the fixed schedule was used |
+
+The fourth row is `fundOnBehalf`'s entire reason for existing. If the sponsor were recorded as the auction contract, `terminate`, `resolve`, `reclaimUnapplied` and `reclaimMissedTranche` would all refund to a contract instead of the brand that paid.
+
+### Still to run on testnet
+Outbid-and-withdraw, decline, missed payment, expiry. Each needs its own auction id and about ten minutes, and each tests a safety property that currently only passes in a simulator.
