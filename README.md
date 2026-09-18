@@ -20,9 +20,17 @@ Holds a campaign's USDC and releases it in tranches against proof.
 | Network | Address | |
 |---|---|---|
 | Arc (5042) | [`0xCDfad58266dAe603c542984A7C8e8e72b8c617C9`](https://explorer.arc.io/address/0xCDfad58266dAe603c542984A7C8e8e72b8c617C9) | verified · Safe-owned · deployed on Arc's launch day |
-| Base (8453) | [`0xf78257D41C8e78dD19e941146B58ebe9f9726635`](https://basescan.org/address/0xf78257D41C8e78dD19e941146B58ebe9f9726635) | verified · Safe-owned |
-| Arc testnet | [`0x74a0610c0d27744e704f5032edd1d2abbaf7a8a3`](https://testnet.arcscan.app/address/0x74a0610c0d27744e704f5032edd1d2abbaf7a8a3) | v2, paired with the auction |
-| Base Sepolia | [`0x88064FC8D03f8745Fd131CFc2D902Bc1e2502A77`](https://sepolia.basescan.org/address/0x88064FC8D03f8745Fd131CFc2D902Bc1e2502A77) | one campaign completed |
+| Base (8453) | [`0xc4809f0AAd7135d0B0CD582C40fe5091EF96dcb4`](https://basescan.org/address/0xc4809f0AAd7135d0B0CD582C40fe5091EF96dcb4) | verified · Safe-owned |
+| Arc testnet | [`0x74a0610c0d27744e704f5032edd1d2abbaf7a8a3`](https://testnet.arcscan.app/address/0x74a0610c0d27744e704f5032edd1d2abbaf7a8a3) | paired with the auction |
+| Base Sepolia | [`0x74A0610C0D27744e704F5032eDd1D2abbaF7a8A3`](https://sepolia.basescan.org/address/0x74a0610c0d27744e704f5032edd1d2abbaf7a8a3) | same address as Arc testnet — same deployer, same nonce |
+
+`campaignCreator` is unset on both mainnets. Until the auction contract has run
+every path on a testnet, only the Safe creates campaigns.
+
+Retired v1 deployments, listed so nobody mistakes one for the current contract:
+`0xf78257D41C8e78dD19e941146B58ebe9f9726635` (Base),
+`0x88064FC8D03f8745Fd131CFc2D902Bc1e2502A77` (Base Sepolia),
+`0xFE9b1D63552FE9566178E4d6dcd86A2222b52227` (Arc testnet).
 
 ### PeelbidAuction
 Runs the auction for one panel, holds bid deposits, and settles the winner
