@@ -1,6 +1,6 @@
 # peelbid — escrow and data model
 
-**Status:** escrow v2 on Arc mainnet · auction on Arc testnet, three of four paths proven · 18 September 2026
+**Status:** four chains on escrow v2 · auction exercised on Arc testnet · campaign pages and proof live · 19 September 2026
 **Purpose:** settle the mechanics on paper before any Solidity is written.
 
 ---
@@ -933,3 +933,33 @@ Nothing goes to mainnet until all four have run.
 The first auction took a 300 USDC bid, which made settling it a matter of finding 270 USDC of testnet money. The later two used 60 and 50 USDC bids for the same coverage at a fifth of the cost.
 
 Worth remembering for the next contract: **size test scenarios to the smallest amount that exercises the path.** The 300 USDC auction proves nothing the 60 USDC one doesn't.
+
+---
+
+## 19. Proof, and what it can actually promise
+
+The campaign page went up on 19 September. It is where the proof feed lives, and building it forced the question the design had deferred: how do you stop somebody resubmitting an old photo?
+
+### What was rejected
+
+**EXIF timestamps.** Any phone app edits them. Checking one quietly in the background would mean relying on a guarantee that isn't there, which is worse than not checking at all.
+
+**In-app camera only.** A virtual camera driver defeats it, and it locks out an honest owner whose phone camera won't cooperate. It looks like security and is mostly inconvenience.
+
+### What it does instead
+
+The site issues a six-character code. The owner writes it on paper, holds it beside the placement, and photographs both together. An old photo cannot carry a code that did not exist when it was taken. Thirty minutes, single use, and issuing a new one retires the old so nobody can hold a stack of them.
+
+The alphabet excludes `I`, `O`, `0` and `1`, because a person is writing this down and reading it back.
+
+**This does not make a fake proof impossible.** Someone determined can write the code on paper and photograph a sticker that is no longer on the car. What it makes impossible is the *lazy* version — the placement fell off and last month's photo got sent again — and that is the case that actually happens.
+
+EXIF is still read, and shown to the sponsor rather than acted on: *"the file says it was taken three days before it was submitted."* So is how the photo arrived, camera or upload. Both are facts the sponsor weighs; neither is a gate we enforce.
+
+**The real verification layer was always the sponsor's seven-day window.** The contract's job is not to make fraud impossible but to make it visible and disputable, and the freshness code exists to make the visible part harder to fake.
+
+### The page reads the chain, not us
+
+Money, tranche schedule and status come from `eth_call` against the escrow on every load. Nothing about payment is read from our database, so the two cannot disagree about what has been paid. If the site vanished, an owner could get the same answers from a block explorer and still trigger a payment that is due.
+
+**One lesson from building it:** the four-byte selectors were written by hand and every one was wrong. A wrong selector doesn't error usefully — the contract has no such function, so the call reverts, and "execution reverted" reads like a contract fault rather than a typo. Derive them with `cast sig`, never from memory.
