@@ -538,4 +538,31 @@ contract PeelbidEscrowTest is Test {
         escrow.fundOnBehalf(ID);
         vm.stopPrank();
     }
+// Append to test/PeelbidEscrow.t.sol.
+// Delete the file's final closing brace first — this block ends with one.
+
+    // ---------------- arbiter changes are visible ----------------
+
+    event ArbiterChanged(address indexed previous, address indexed next);
+
+    function test_SetArbiterEmits() public {
+        address next = makeAddr("newArbiter");
+
+        vm.expectEmit(true, true, false, false);
+        emit ArbiterChanged(arbiter, next);
+        escrow.setArbiter(next);
+
+        assertEq(escrow.arbiter(), next);
+    }
+
+    function test_SetArbiterRevertsOnZero() public {
+        vm.expectRevert(PeelbidEscrow.ZeroAddress.selector);
+        escrow.setArbiter(address(0));
+    }
+
+    function test_StrangerCannotSetArbiter() public {
+        vm.prank(stranger);
+        vm.expectRevert();
+        escrow.setArbiter(stranger);
+    }
 }
