@@ -1,6 +1,6 @@
 # peelbid — escrow and data model
 
-**Status:** four chains on escrow v2 · three of four auction paths proven on-chain · campaign pages and proof live · 19 September 2026
+**Status:** four chains on escrow v2 · three of four auction paths proven · the proof loop closed · 19 September 2026
 **Purpose:** settle the mechanics on paper before any Solidity is written.
 
 ---
@@ -1049,3 +1049,80 @@ Every override is recorded. Knowing the model was wrong is worth more than a tid
 Proof. A determined person can write the code on paper and photograph a placement that came off last week. A virtual camera defeats an in-app camera; EXIF is editable by any phone app, which is why it is shown to the sponsor rather than acted on.
 
 What changed is that the cheap attacks now cost something, and the sentence we show sponsors is finally true.
+
+---
+
+## 22. Closing the proof loop
+
+19 September, late. Everything between an owner photographing a placement and an instalment releasing now exists.
+
+### Who sends the transaction
+
+A proof hash is a state change, not a signature, so somebody pays gas. Three ways, and the difference matters:
+
+**The owner sends it.** No contract change. Costs them a fraction of a cent on Arc, where the fee is USDC. Requires them to hold a little USDC.
+
+**We relay it.** They sign, we submit. The escrow would have to accept a proof from an address that isn't the campaign's owner — a contract change, to something now deployed on four chains.
+
+**Nobody writes it yet.** Keep proofs in the database and have the operator submit hashes from the Safe. What §11 Phase 0 already assumed.
+
+**The owner sends it.** A proof somebody else submits is a proof that depends on us being here, and the whole argument for this contract is that it doesn't. If a first-time owner has no USDC at all, sending them a few cents is a solved problem; rewriting the escrow is not.
+
+### Connecting a wallet is not the same thing
+
+Worth separating, because they look alike and one is free.
+
+**Signing a message** — proving you control an address — costs nothing and touches no chain. That is what linking a wallet is.
+
+**Writing a hash into a contract** is a transaction. An EIP-712 signature *authorises*; it does not execute. Somebody still submits and somebody still pays.
+
+So an owner can now bring their own wallet, choose it as their payout address, and never spend anything to do so. Writing a proof, later, is the part that costs.
+
+The address must already appear in Privy's linked accounts before it can be set as a payout target. An address the browser merely asserts is never accepted — a payout address anyone can change is the entire attack.
+
+### What the loop looks like now
+
+1. Owner photographs the placement with a freshness code.
+2. A model reads it: is the code there, is the object right. Anything uncertain goes to a person.
+3. Owner writes the photo's hash to the escrow from their own wallet.
+4. The chain's seven-day challenge window opens.
+5. Unchallenged, the instalment releases — and anyone can trigger that, including the owner from a block explorer.
+
+**The hash is of the file, not its URL.** Anyone holding the photograph can check it against what the chain recorded. Hashing an address would prove only that an address existed.
+
+### A mistake worth writing down
+
+Two four-byte selectors were written from memory this week and both were wrong. A wrong selector doesn't fail usefully — the contract has no such function, so the call reverts, and "execution reverted" reads as a contract fault rather than a typo.
+
+Derive them with `cast sig`. Every time.
+
+### The gap somebody found the same evening
+
+*"Who verifies placement if the site disappears before the next escrow release?"*
+
+Nobody, and most of that is intentional. The hash is already on the contract,
+written by the owner. The seven days keep counting without us, and `release()`
+can be called by anyone — the owner included, from a block explorer.
+
+What goes with us is **the photograph behind the hash**. It sits in our storage.
+A sponsor holding no copy of their own cannot check the hash against anything,
+so their ability to dispute disappears too, and the escrow falls back to its
+default: it pays.
+
+The direction of that failure is a choice. An escrow that stalls when the
+operator vanishes is one where the operator vanishing costs the owner money
+they have earned. Better the sponsor loses a chance to object than the person
+who did the work goes unpaid.
+
+But the evidence being a single point of failure is not a choice, it is an
+omission. Two ways out:
+
+**Pin the file** to IPFS or Arweave when the proof is submitted. Durable,
+costs something per proof, and nothing about it is peelbid-specific.
+
+**Give the sponsor the file** at the moment of submission, so they hold their
+own copy. Cheaper, and probably sufficient — the sponsor is the only party who
+ever needs to check that hash, and they already get an email when a proof
+lands.
+
+The second first. Unresolved as of 19 September.
