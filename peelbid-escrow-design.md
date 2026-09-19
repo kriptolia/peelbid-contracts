@@ -1002,3 +1002,50 @@ Afterwards:
 `paymentMissed` waits on a 48-hour payment window; `expire` on seven days. Both delays exist so an owner cannot open an auction, tip off a friend and close it before anybody notices. They are inconveniencing us exactly as designed, which is the only evidence that they work.
 
 Nothing reaches mainnet until both have run.
+
+---
+
+## 21. Somebody had to look at the photo
+
+19 September, and it came from a question rather than a plan: *do we actually check that the code is in the picture?*
+
+We did not. A valid code plus any file at all marked a listing verified. The picture was never opened. And the campaign page was telling sponsors **"photographed with code ABC-123, issued minutes before"** — a sentence we displayed and had never tested.
+
+That is worse than having no check. A claim nobody verifies is a claim that will eventually be false, and we were putting it in front of the one person it was meant to protect.
+
+### What it does now
+
+A model reads the photo and answers two questions, both narrow: is the handwritten code legible and does it match the one we issued, and is the object plausibly the thing in the listing. Nothing about ownership, nothing about whether the photo is any good.
+
+Three outcomes, and only one of them is a rejection:
+
+| | |
+|---|---|
+| `pass` | code matches, object plausible, confidence ≥ 70 → verified |
+| `fail` | the photo is not an attempt at this task — a screenshot, a stock image, a blank wall |
+| `unsure` | **everything else → a person** |
+
+**The model never rejects a real attempt.** The asymmetry decides it: turning away an honest owner loses them permanently, and they do not come back to argue. Passing something a human then reviews costs a sponsor at most one campaign, and the seven-day challenge window still sits behind it.
+
+### What four tests showed
+
+Tested end to end with real photographs:
+
+- **A laptop, no code in frame.** Object found, code absent → sent to a person. Correct.
+- **An unrelated photo.** Rejected outright. The `fail` threshold is calibrated where it should be.
+- **A deliberately wrong code.** The model read `VE7-3HN`, compared it to the expected `96X-BBL`, said so plainly and sent it on. It is not checking whether a code exists; it is checking whether *that* code is there.
+- **The right code with the right object.** Passed, confidence 90.
+
+Eight to twelve seconds each.
+
+### The queue
+
+A machine that sends things to a person needs somewhere for that person to be. `/admin/reviews` shows both photographs side by side, what the model read, what it expected, and its reasoning — then two buttons.
+
+Every override is recorded. Knowing the model was wrong is worth more than a tidy log, and it is the only way to find out what honest people actually photograph.
+
+### What this still isn't
+
+Proof. A determined person can write the code on paper and photograph a placement that came off last week. A virtual camera defeats an in-app camera; EXIF is editable by any phone app, which is why it is shown to the sponsor rather than acted on.
+
+What changed is that the cheap attacks now cost something, and the sentence we show sponsors is finally true.
