@@ -1,6 +1,6 @@
 # peelbid — escrow and data model
 
-**Status:** four chains on escrow v2 · auction exercised on Arc testnet · campaign pages and proof live · 19 September 2026
+**Status:** four chains on escrow v2 · three of four auction paths proven on-chain · campaign pages and proof live · 19 September 2026
 **Purpose:** settle the mechanics on paper before any Solidity is written.
 
 ---
@@ -963,3 +963,42 @@ EXIF is still read, and shown to the sponsor rather than acted on: *"the file sa
 Money, tranche schedule and status come from `eth_call` against the escrow on every load. Nothing about payment is read from our database, so the two cannot disagree about what has been paid. If the site vanished, an owner could get the same answers from a block explorer and still trigger a payment that is due.
 
 **One lesson from building it:** the four-byte selectors were written by hand and every one was wrong. A wrong selector doesn't error usefully — the contract has no such function, so the call reverts, and "execution reverted" reads like a contract fault rather than a typo. Derive them with `cast sig`, never from memory.
+
+---
+
+## 20. Settlement, on a chain
+
+19 September. The auction contract settled its first auction on Arc testnet, and an owner refused a bidder. Three of four paths are now proven with real USDC rather than in a simulator.
+
+### What `settle` actually did
+
+One transaction, read off the logs in order:
+
+1. Pulled the balance from the winner — 57 USDC, the 67 bid less the 10 already held as deposit.
+2. `CampaignCreated` in the escrow: owner, sponsor, **67 USDC total**, 800 bps fee.
+3. Approved the escrow for exactly that amount, called `fundOnBehalf`, `CampaignFunded`.
+4. Set the approval back to zero.
+5. `Settled`.
+
+**The campaign's sponsor is the brand's address, not the auction contract's.** That single field is why `fundOnBehalf` exists: `terminate`, `resolve`, `reclaimUnapplied` and `reclaimMissedTranche` all pay `campaign.sponsor`, so naming the auction there would send every refund to a contract instead of the brand that paid.
+
+Afterwards:
+
+| | |
+|---|---|
+| USDC in the auction | 50 — deposits for two other auctions, plus 10 owed |
+| USDC in the escrow | **67** |
+| Tranches | **2** — one month is 40/60 |
+| `totalHeld` | 40 |
+
+50 = 40 held + 10 owed. The accounting invariant again, unchanged.
+
+### And a refusal
+
+`declineLeader` on a separate auction: `RefundCredited` to the bidder, `Declined`, `Cancelled`. The owner gave no reason and was not asked for one — that right is the product rather than a gap in it.
+
+### What is left
+
+`paymentMissed` waits on a 48-hour payment window; `expire` on seven days. Both delays exist so an owner cannot open an auction, tip off a friend and close it before anybody notices. They are inconveniencing us exactly as designed, which is the only evidence that they work.
+
+Nothing reaches mainnet until both have run.
