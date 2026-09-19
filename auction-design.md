@@ -162,3 +162,34 @@ MAX_TOTAL_HELD   5_000e6   // across all deposits
 
 There is no audit. Exposure is bounded by what the code allows rather than by
 assuming the code is right.
+
+---
+
+## Replacing this contract
+
+Raised publicly on 19 September, and we had not thought about it.
+
+**Refund credits do not survive a swap.** `refunds[address]` lives in the
+contract that credited it. Deploy a second `PeelbidAuction` and every
+unwithdrawn balance stays in the first one — reachable, since `withdrawRefund`
+still works there, but invisible to anyone looking at the new one.
+
+On a testnet that is nothing. On mainnet it is other people's money sitting in
+an address the product no longer points at.
+
+There are only two honest ways to replace it:
+
+**Drain first.** Stop new auctions, resolve every open one, wait until every
+refund has been withdrawn, then swap. Slow, and it needs a way to see who is
+still owed — which does not exist today.
+
+**Get it right before mainnet.** Available exactly once, and that once is now.
+
+The second is the plan. Every change we want in this contract lands before it
+holds real deposits, not after — including letting a re-bid draw from the
+bidder's existing credit rather than pulling fresh USDC.
+
+**The escrow has no equivalent problem.** It holds campaign money rather than
+per-address balances, and a campaign lives and dies in the contract that
+created it. That is why escrow v1 could be retired on four chains in an
+afternoon without stranding anything.
