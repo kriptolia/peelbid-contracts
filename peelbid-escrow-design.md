@@ -1,6 +1,6 @@
 # peelbid — escrow and data model
 
-**Status:** four chains on escrow v2 · three of four auction paths proven · the proof loop closed · 19 September 2026
+**Status:** a campaign funded and proved through the browser, end to end · 20 September 2026
 **Purpose:** settle the mechanics on paper before any Solidity is written.
 
 ---
@@ -1126,3 +1126,48 @@ ever needs to check that hash, and they already get an email when a proof
 lands.
 
 The second first. Unresolved as of 19 September.
+
+---
+
+## 23. The first campaign that went all the way
+
+20 September. A bid was placed, approved, funded from the browser, evidenced, and the proof hash written on-chain by the owner — every step through the product rather than a terminal.
+
+| | |
+|---|---|
+| Campaign | `0x60ab5a2a…` on Arc testnet |
+| Total | 110 USDC |
+| Funded | 13:28 UTC, by the sponsor, from the site |
+| Applied | 13:55 UTC, proof hash `0x8a46dae5…` |
+
+And `paymentMissed` ran on auction 001 the same afternoon — the fourth of five auction paths. Only `expire` is left, on the 26th.
+
+### Seven things the test found
+
+None of them would have been pleasant to find on mainnet.
+
+**The off-chain bid limit didn't exist.** A 1100 USDC bid was placed and approved while `MAX_CAMPAIGN` is 500. It could never have become a campaign, and nothing noticed until the operator queue rendered a command that would revert. Every constant in a contract that constrains a user has to exist in the interface too.
+
+**Proof uploads had no route.** `kind=proof` fell through to the listing path, which checks ownership against a listing id we were filling with a campaign id.
+
+**HEIC was refused.** iPhones send it when Safari doesn't convert, which means refusing the camera most owners will actually use.
+
+**Privy didn't know Arc existed.** *"Chain ID 5042002 is not supported"* — it reads as a wallet fault and is a missing four-line definition.
+
+**The wrong wallet signed.** Somebody with both an embedded wallet and a connected one got whichever Privy reached for first, and `submitProof` only accepts the campaign's recorded owner. The failure surfaced as "execution reverted for an unknown reason", which says nothing.
+
+**External wallets don't follow a chainId.** MetaMask stayed on whatever network it was last on and priced an Arc transaction in BNB. Arc is in no wallet's default list either, so switching fails with "unrecognized chain" — a request to add it, not an error. Asking somebody to find Arc in a dropdown is asking them to give up.
+
+**110 USDC moved without anybody being asked.** `showWalletUIs: false` was right for an invisible wallet at sign-in and wrong the moment that wallet could move money.
+
+### What the failures had in common
+
+Five of the seven produced an error message that described a symptom rather than a cause: *upload failed*, *execution reverted for an unknown reason*, *server error*. Each one sent somebody to a browser console to find out what the server already knew.
+
+Passing the real reason through was a few lines in each place, and it is the difference between a person who can act and a person who is stuck.
+
+### One thing the contract got right that the interface got wrong
+
+`dueAt(id, 0)` returns `fundedAt + APPLICATION_WINDOW` rather than a tranche date, because the first tranche's deadline is *get the placement on*, not *be paid*. The campaign page rendered it like any other instalment date.
+
+Missing a monthly proof costs one instalment. Missing the application window lets the sponsor reclaim the entire campaign. Those are different sizes of mistake and the page now says so.
