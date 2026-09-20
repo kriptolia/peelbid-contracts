@@ -21,7 +21,7 @@ Holds a campaign's USDC and releases it in tranches against proof.
 |---|---|---|
 | Arc (5042) | [`0xCDfad58266dAe603c542984A7C8e8e72b8c617C9`](https://explorer.arc.io/address/0xCDfad58266dAe603c542984A7C8e8e72b8c617C9) | verified · Safe-owned · deployed on Arc's launch day |
 | Base (8453) | [`0xc4809f0AAd7135d0B0CD582C40fe5091EF96dcb4`](https://basescan.org/address/0xc4809f0AAd7135d0B0CD582C40fe5091EF96dcb4) | verified · Safe-owned |
-| Arc testnet | [`0x74a0610c0d27744e704f5032edd1d2abbaf7a8a3`](https://testnet.arcscan.app/address/0x74a0610c0d27744e704f5032edd1d2abbaf7a8a3) | paired with the auction |
+| Arc testnet | [`0x74a0610c0d27744e704f5032edd1d2abbaf7a8a3`](https://explorer.testnet.arc.io/address/0x74a0610c0d27744e704f5032edd1d2abbaf7a8a3) | paired with the auction |
 | Base Sepolia | [`0x74A0610C0D27744e704F5032eDd1D2abbaF7a8A3`](https://sepolia.basescan.org/address/0x74a0610c0d27744e704f5032edd1d2abbaf7a8a3) | same address as Arc testnet — same deployer, same nonce |
 
 `campaignCreator` is unset on both mainnets. Until the auction contract has run
@@ -38,7 +38,7 @@ directly into the escrow.
 
 | Network | Address | |
 |---|---|---|
-| Arc testnet | [`0x3264107f701b0a3a8e241f75f18fbb7f2b3f8d84`](https://testnet.arcscan.app/address/0x3264107f701b0a3a8e241f75f18fbb7f2b3f8d84) | first cycle running |
+| Arc testnet | [`0x3264107f701b0a3a8e241f75f18fbb7f2b3f8d84`](https://explorer.testnet.arc.io/address/0x3264107f701b0a3a8e241f75f18fbb7f2b3f8d84) | first cycle running |
 
 Same bytecode on every network. The contracts were written without
 chain-specific assumptions; deploying to Arc changed one address in an
