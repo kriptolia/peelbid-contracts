@@ -193,3 +193,26 @@ bidder's existing credit rather than pulling fresh USDC.
 per-address balances, and a campaign lives and dies in the contract that
 created it. That is why escrow v1 could be retired on four chains in an
 afternoon without stranding anything.
+
+---
+
+## A re-bid spends the bidder's credit first
+
+Changed 21 September, after it was asked for publicly.
+
+Being outbid credits your deposit rather than sending it — the property that
+stops a hostile bidder freezing an auction by refusing transfers. The cost was
+that coming back to an auction meant two transactions: withdraw the credit,
+then send it straight back as a new deposit. The commonest thing that happens
+in an auction was also the most expensive.
+
+`placeBid` now spends `refunds[bidder]` before pulling from the wallet, and
+emits `CreditApplied` when it does. Credit is per address rather than per
+auction, so money freed by being outbid anywhere funds a bid anywhere. It never
+leaves the contract: `refunds` falls and the deposit rises by the same amount,
+so `balance == totalHeld + Σ refunds` holds exactly as before — the invariant
+suite ran 16,384 random calls against it and found nothing.
+
+It went in before mainnet on purpose. Refund credits don't survive a contract
+swap, so this was the one window in which the auction could change without
+stranding anybody's money.
