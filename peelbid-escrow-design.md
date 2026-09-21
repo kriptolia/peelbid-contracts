@@ -1,6 +1,6 @@
 # peelbid — escrow and data model
 
-**Status:** a campaign funded and proved through the browser, end to end · 20 September 2026
+**Status:** Safe 2-of-3 on both mainnets · the page exercises every contract right · waitlist open · 22 September 2026
 **Purpose:** settle the mechanics on paper before any Solidity is written.
 
 ---
@@ -1171,3 +1171,48 @@ Passing the real reason through was a few lines in each place, and it is the dif
 `dueAt(id, 0)` returns `fundedAt + APPLICATION_WINDOW` rather than a tranche date, because the first tranche's deadline is *get the placement on*, not *be paid*. The campaign page rendered it like any other instalment date.
 
 Missing a monthly proof costs one instalment. Missing the application window lets the sponsor reclaim the entire campaign. Those are different sizes of mistake and the page now says so.
+
+---
+
+## 24. Rights from the page, and a multisig at last
+
+21 September.
+
+### The page asks the contract
+
+Each of the escrow's rights — `release` for the owner; `challenge`,
+`reclaimMissedTranche` and `reclaimUnapplied` for the sponsor — now has a
+button on the campaign page. None of them re-implements the contract's
+timing rules. Before a button appears, the page simulates the exact call
+with `eth_call`, from the address that would send it, and shows the button
+only if that simulation doesn't revert.
+
+The consequence is that the interface can't drift from the contract: it
+cannot offer an action the chain would refuse, and it cannot hide one the
+chain would allow. A rule that exists in two places eventually disagrees
+with itself; this one exists in one.
+
+### The Safe is 2-of-3
+
+The Safe that owns, arbitrates and collects fees on both mainnet escrows
+now needs two of three signatures: a laptop wallet, a OneKey hardware
+wallet, and a backup on a separate phone. One leaked key can do nothing
+alone; one lost device locks nothing. It was the oldest open item, and it
+had to close before any real money arrived.
+
+### Nobody has to remember the keeper
+
+The keeper used to sweep a hand-kept list of campaigns, and in September
+that list was empty while two tranches waited. It now reads a public feed
+of registered campaigns — chain, escrow and id, all of which are public
+on-chain anyway — merged with its own list, so the site being down never
+stops a payment. Campaigns on a retired escrow are counted and skipped
+rather than assumed to share its ABI.
+
+### The auction's one window
+
+A re-bid now spends the bidder's refund credit before their wallet
+(`CreditApplied`). It went in before mainnet because refund credits don't
+survive a contract swap; see `contracts/auction-design.md`. 103 tests and
+8 invariants pass; the new contract deploys to testnet after the last of
+the five auction paths runs on 26 September.
