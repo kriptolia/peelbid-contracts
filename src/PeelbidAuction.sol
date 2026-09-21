@@ -136,6 +136,7 @@ contract PeelbidAuction is Ownable, Pausable, ReentrancyGuard {
     event Expired(bytes32 indexed id);
     event RefundCredited(address indexed who, uint256 amount);
     event RefundWithdrawn(address indexed who, uint256 amount);
+    event CreditApplied(bytes32 indexed id, address indexed bidder, uint256 amount);
     event FeeRecipientChanged(address indexed previous, address indexed next);
 
     // ------------------------------------------------------------------
@@ -260,6 +261,9 @@ contract PeelbidAuction is Ownable, Pausable, ReentrancyGuard {
      * @param artwork keccak256 of the artwork file. The image lives off-chain;
      *                the hash is what proves the artwork approved is the
      *                artwork supplied.
+     * @dev Any refund credit the bidder already holds — from being outbid
+     *      here or in any other auction — is spent first. Only the rest is
+     *      pulled from their wallet.
      */
     function placeBid(bytes32 id, uint256 amount, uint8 months, bytes32 artwork)
         external
@@ -294,7 +298,7 @@ contract PeelbidAuction is Ownable, Pausable, ReentrancyGuard {
         bids[id][msg.sender].months  = months;
         bids[id][msg.sender].artwork = artwork;
 
-        if (toPull > 0) TOKEN.safeTransferFrom(msg.sender, address(this), toPull);
+        _collect(id, toPull);
 
         // Anti-snipe: a late bid buys everyone else time to answer it.
         if (a.endsAt - block.timestamp < EXTEND_WINDOW) {
@@ -315,20 +319,6 @@ contract PeelbidAuction is Ownable, Pausable, ReentrancyGuard {
         if (rate < leadRate + (leadRate * MIN_RAISE_BPS) / 10_000) revert BidTooLow();
     }
 
-    /**
-     * @dev Move the caller's deposit to what the new amount requires, and
-     *      report what still has to be pulled in.
-     *
-     *      A deposit can go *down* as well as up. Raising your rate by
-     *      shortening the run does exactly that: 500 USDC over six months is
-     *      83/month and locks 50, while 300 over three is 100/month and locks
-     *      30. The rate rose, the deposit fell.
-     *
-     *      An earlier version only handled the upward case, so the 20 USDC
-     *      difference stayed in the contract belonging to nobody — counted in
-     *      totalHeld, owed to no one, unreachable. An invariant found it after
-     *      three calls; no amount of staring at the function would have.
-     */
     /**
      * @dev Set the caller's deposit for a new amount and report what still has
      *      to be pulled.
@@ -361,6 +351,34 @@ contract PeelbidAuction is Ownable, Pausable, ReentrancyGuard {
 
         bids[id][msg.sender].amount  = amount;
         bids[id][msg.sender].deposit = want;
+    }
+
+    /**
+     * @dev Take what a bid needs, spending the bidder's refund credit first.
+     *
+     *      Asked for publicly the week this ran on testnet: an outbid bidder
+     *      coming back paid twice over — withdraw the credit, then send it
+     *      straight back. The commonest thing that happens in an auction was
+     *      also the most expensive.
+     *
+     *      Credit is per address, not per auction, so money freed by being
+     *      outbid anywhere funds a bid here. It never leaves the contract:
+     *      `refunds` falls, the deposit rises by the same amount, and only the
+     *      remainder comes from the wallet. balance == totalHeld + refunds
+     *      holds exactly as before.
+     */
+    function _collect(bytes32 id, uint256 toPull) internal {
+        if (toPull == 0) return;
+
+        uint256 credit = refunds[msg.sender];
+        uint256 fromCredit = credit < toPull ? credit : toPull;
+        if (fromCredit > 0) {
+            refunds[msg.sender] = credit - fromCredit;
+            emit CreditApplied(id, msg.sender, fromCredit);
+        }
+
+        uint256 fromWallet = toPull - fromCredit;
+        if (fromWallet > 0) TOKEN.safeTransferFrom(msg.sender, address(this), fromWallet);
     }
 
     /// @notice Close bidding. Permissionless once the clock has run out.
