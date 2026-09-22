@@ -1,6 +1,6 @@
 # peelbid — escrow and data model
 
-**Status:** Safe 2-of-3 on both mainnets · the page exercises every contract right · waitlist open · 22 September 2026
+**Status:** auctions run on-chain from the site · Safe 2-of-3 on both mainnets · 22 September 2026
 **Purpose:** settle the mechanics on paper before any Solidity is written.
 
 ---
@@ -1216,3 +1216,40 @@ A re-bid now spends the bidder's refund credit before their wallet
 survive a contract swap; see `contracts/auction-design.md`. 103 tests and
 8 invariants pass; the new contract deploys to testnet after the last of
 the five auction paths runs on 26 September.
+
+---
+
+## 25. The site bids on-chain
+
+22 September. Until today a bid on peelbid was a row in a database and a
+campaign was set up by hand from the Safe. Now:
+
+**An owner opens a panel from their own wallet.** The contract records
+whoever calls `openAuction` as the owner and pays the campaign there, so the
+site can't do it for them. It prepares the terms and reserves the panel;
+it marks the auction open only after reading it back from the chain and
+confirming the opening address belongs to that person.
+
+**A brand bids on-chain.** The artwork is fingerprinted when it's uploaded,
+and that hash goes into the bid. The site records a bid only after reading
+its transaction back — right contract, right auction, a wallet the bidder
+controls, the same artwork hash — and takes the amount from the chain's log,
+not from anything the browser sent.
+
+**Anybody can watch.** Leading rate, time left, and the history of bids with
+brand names partly hidden. That's enough to see bidding is real without
+seeing who's bidding.
+
+**The winner pays in one transaction.** `settle` creates the campaign in the
+escrow and funds it; the money never passes through us. The campaign takes
+the auction's id, so the site finds it on-chain and registers it itself.
+
+**Nothing waits on anyone remembering.** A keeper ends auctions when their
+clock runs out, expires them if the owner never decides, and closes the
+payment window if the winner never pays — all three calls permissionless.
+A sync reads the chain after every keeper run and after every transaction
+on the site, and turns each change into an email and a notification, once.
+
+Deposits were checked to the cent after the first live bids: the contract
+held 65 USDC, which is 25 in live deposits plus 30 and 10 in credits from
+the earlier contract tests — nothing unaccounted for.
