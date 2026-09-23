@@ -1,6 +1,6 @@
 # peelbid — escrow and data model
 
-**Status:** auctions run on-chain from the site · Safe 2-of-3 on both mainnets · 22 September 2026
+**Status:** auctions on-chain · spot checks · an arbiter's desk that prepares and never signs · 23 September 2026
 **Purpose:** settle the mechanics on paper before any Solidity is written.
 
 ---
@@ -1253,3 +1253,42 @@ on the site, and turns each change into an email and a notification, once.
 Deposits were checked to the cent after the first live bids: the contract
 held 65 USDC, which is 25 in live deposits plus 30 and 10 in credits from
 the earlier contract tests — nothing unaccounted for.
+
+---
+
+## 26. Between instalments, and when it goes wrong
+
+23 September.
+
+### Spot checks
+
+An instalment's proof shows the placement on one day a month. A sponsor can
+now ask for a fresh photo in between: once every thirty days, once the
+placement has started. The owner has 48 hours, with a code issued minutes
+before, reviewed and fingerprinted like any proof. It stays off-chain — the
+escrow can't force an extra photo, and shouldn't try — but an unanswered one
+is marked missed and stays on the record, where the sponsor and the arbiter
+can both see it when a dispute comes.
+
+### The arbiter's desk
+
+The escrow gives the arbiter two powers, and the desk explains them before
+anyone uses them:
+
+- **resolve** a frozen instalment — all to the owner, all back to the
+  sponsor, or split. The fee comes out of the owner's part only.
+- **terminate** a campaign — everything not yet released, frozen included,
+  goes back to the sponsor. Released instalments stay released.
+
+The desk prepares a decision and never signs it: on mainnet it produces a
+Safe transaction for two of three keys to sign. Every decision carries a
+written reason and the name of the person who made it, and both sides are
+told only when the chain shows it happened — a decision nobody signed is
+never announced.
+
+The first live resolution, on testnet: a 44 USDC instalment split evenly.
+The desk previewed 20.24 to the owner, 1.76 in fees and 22 to the sponsor;
+the transaction's transfers were exactly that.
+
+An arbiter is only as trusted as their explained decisions. That's the whole
+design.
