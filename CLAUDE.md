@@ -31,6 +31,7 @@ The full history and every decision: `@../peelbid-ops/CLAUDE.md`, section
 - Mainnet decisions go through the 2-of-3 Safe, never a single key.
 - No em dashes in comments, messages, docs or commit messages. Explain
   what the code does and why; the author is new to Solidity.
+- Commits and pull requests carry no Co-Authored-By or 'Generated with' lines.
 
 ## Run and check
 
