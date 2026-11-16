@@ -1,4 +1,4 @@
-# PeelbidAuction — design
+# PeelbidAuction: design
 
 Decided 14 September. Written before the contract so the reasoning survives it.
 
@@ -33,7 +33,7 @@ valuable one, and the owner could never compare them.
 
 ### The deposit is `max(10 USDC, 10% of the bid)`
 A flat percentage leaves 50 USDC bids with a 5 USDC deposit, which deters
-nobody. A tiered rate — 20% below 100, 10% above — creates a cliff at the
+nobody. A tiered rate (20% below 100, 10% above) creates a cliff at the
 threshold where bidding 101 locks less than bidding 99, and people would find
 it. A floor does the same job with no edge to game, and the amount only ever
 rises with the bid.
@@ -81,7 +81,7 @@ than whoever values the panel most.
 
 ### Approval is explicit and it can be a refusal
 The auction ending does not award anything. The owner approves the leader, and
-may decline them — the whole product rests on an owner keeping the final say
+may decline them: the whole product rests on an owner keeping the final say
 over what goes on their property.
 
 **Declining ends the auction; it does not pass to the runner-up.** This was the
@@ -90,7 +90,7 @@ losing bidder gets their deposit back the moment they are outbid, so at most
 one deposit exists per auction at any time and there is nobody below the leader
 still holding one to be promoted into.
 
-The alternative — hold every deposit until the auction resolves — makes
+The alternative (hold every deposit until the auction resolves) makes
 promotion work, and costs every losing bidder up to nineteen days of locked
 money (ten bidding, seven deciding, two paying) for a case that will be rare.
 Not worth it. The owner opens a fresh auction and the site tells the other
@@ -104,7 +104,7 @@ auction expires. An owner who disappears cannot strand a bidder's money.
 ### Artwork is a hash
 The image can't go on-chain. The bid carries `keccak256` of the file, and the
 site shows the image. The hash proves the artwork approved is the artwork
-supplied — the owner approves the sponsor and their creative in one act, and
+supplied: the owner approves the sponsor and their creative in one act, and
 neither side can swap it afterwards.
 
 ### Payment window: 48 hours
@@ -146,7 +146,7 @@ with `BidTooLarge`, which turned out to be the design telling us something
 rather than the test being wrong.
 
 Checking at open time matters more than it sounds. Without it, an owner ticks
-"12 months", the listing goes live, and no bid ever arrives — with nothing
+"12 months", the listing goes live, and no bid ever arrives, with nothing
 anywhere explaining why. `longestRunAt(floorRate)` lets the site show the
 ceiling before they choose.
 
@@ -171,7 +171,7 @@ Raised publicly on 19 September, and we had not thought about it.
 
 **Refund credits do not survive a swap.** `refunds[address]` lives in the
 contract that credited it. Deploy a second `PeelbidAuction` and every
-unwithdrawn balance stays in the first one — reachable, since `withdrawRefund`
+unwithdrawn balance stays in the first one: reachable, since `withdrawRefund`
 still works there, but invisible to anyone looking at the new one.
 
 On a testnet that is nothing. On mainnet it is other people's money sitting in
@@ -181,12 +181,12 @@ There are only two honest ways to replace it:
 
 **Drain first.** Stop new auctions, resolve every open one, wait until every
 refund has been withdrawn, then swap. Slow, and it needs a way to see who is
-still owed — which does not exist today.
+still owed, which does not exist today.
 
 **Get it right before mainnet.** Available exactly once, and that once is now.
 
 The second is the plan. Every change we want in this contract lands before it
-holds real deposits, not after — including letting a re-bid draw from the
+holds real deposits, not after. That includes letting a re-bid draw from the
 bidder's existing credit rather than pulling fresh USDC.
 
 **The escrow has no equivalent problem.** It holds campaign money rather than
@@ -200,7 +200,7 @@ afternoon without stranding anything.
 
 Changed 21 September, after it was asked for publicly.
 
-Being outbid credits your deposit rather than sending it — the property that
+Being outbid credits your deposit rather than sending it: the property that
 stops a hostile bidder freezing an auction by refusing transfers. The cost was
 that coming back to an auction meant two transactions: withdraw the credit,
 then send it straight back as a new deposit. The commonest thing that happens
@@ -210,7 +210,7 @@ in an auction was also the most expensive.
 emits `CreditApplied` when it does. Credit is per address rather than per
 auction, so money freed by being outbid anywhere funds a bid anywhere. It never
 leaves the contract: `refunds` falls and the deposit rises by the same amount,
-so `balance == totalHeld + Σ refunds` holds exactly as before — the invariant
+so `balance == totalHeld + Σ refunds` holds exactly as before. The invariant
 suite ran 16,384 random calls against it and found nothing.
 
 It went in before mainnet on purpose. Refund credits don't survive a contract

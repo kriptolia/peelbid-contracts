@@ -2,7 +2,7 @@
 
 USDC escrow and on-chain auctions for advertising placements on physical objects.
 
-A brand pays to put their artwork on something somebody owns — a car door, a
+A brand pays to put their artwork on something somebody owns: a car door, a
 laptop lid, a case that travels to conferences. The money sits in escrow and
 leaves in stages, each stage released against dated proof that the placement is
 still there. Neither party has to trust the other, and neither has to trust the
@@ -22,10 +22,10 @@ Holds a campaign's USDC and releases it in tranches against proof.
 | Arc (5042) | [`0xCDfad58266dAe603c542984A7C8e8e72b8c617C9`](https://explorer.arc.io/address/0xCDfad58266dAe603c542984A7C8e8e72b8c617C9) | verified · Safe-owned · deployed on Arc's launch day |
 | Base (8453) | [`0xc4809f0AAd7135d0B0CD582C40fe5091EF96dcb4`](https://basescan.org/address/0xc4809f0AAd7135d0B0CD582C40fe5091EF96dcb4) | verified · Safe-owned |
 | Arc testnet | [`0x74a0610c0d27744e704f5032edd1d2abbaf7a8a3`](https://explorer.testnet.arc.io/address/0x74a0610c0d27744e704f5032edd1d2abbaf7a8a3) | paired with the auction |
-| Base Sepolia | [`0x74A0610C0D27744e704F5032eDd1D2abbaF7a8A3`](https://sepolia.basescan.org/address/0x74a0610c0d27744e704f5032edd1d2abbaf7a8a3) | same address as Arc testnet — same deployer, same nonce |
+| Base Sepolia | [`0x74A0610C0D27744e704F5032eDd1D2abbaF7a8A3`](https://sepolia.basescan.org/address/0x74a0610c0d27744e704f5032edd1d2abbaf7a8a3) | same address as Arc testnet (same deployer, same nonce) |
 
-`campaignCreator` is unset on both mainnets. Until the auction contract has run
-every path on a testnet, only the Safe creates campaigns.
+On Arc, `campaignCreator` is the auction contract below, appointed by the Safe
+on 7 Nov 2026. On Base it is unset, so only the Safe creates campaigns there.
 
 Retired v1 deployments, listed so nobody mistakes one for the current contract:
 `0xf78257D41C8e78dD19e941146B58ebe9f9726635` (Base),
@@ -38,11 +38,17 @@ directly into the escrow.
 
 | Network | Address | |
 |---|---|---|
-| Arc testnet | [`0x3264107f701b0a3a8e241f75f18fbb7f2b3f8d84`](https://explorer.testnet.arc.io/address/0x3264107f701b0a3a8e241f75f18fbb7f2b3f8d84) | first cycle running |
+| Arc (5042) | [`0xa8dffA9BDf29b22B68687AF95bF16B0C4A7b97A4`](https://explorer.arc.io/address/0xa8dffA9BDf29b22B68687AF95bF16B0C4A7b97A4) | verified · Safe-owned · the Arc escrow's `campaignCreator` |
+| Arc testnet | [`0xc1d18066C733EEAeF646F19ae500C41C2c826013`](https://explorer.testnet.arc.io/address/0xc1d18066C733EEAeF646F19ae500C41C2c826013) | verified · paired with the Arc testnet escrow |
 
-Same bytecode on every network. The contracts were written without
-chain-specific assumptions; deploying to Arc changed one address in an
-environment file and nothing else.
+Retired: `0x3264107f701b0a3a8e241f75f18fbb7f2b3f8d84` (Arc testnet), the first
+auction, replaced on 28 Sep 2026 by the version in which a re-bid draws on the
+bidder's refund credit.
+
+The contracts were written without chain-specific assumptions; deploying to
+Arc changed one address in an environment file and nothing else. One
+difference is deliberate: the Arc mainnet escrow went out on Arc's launch day,
+before `setArbiter` emitted `ArbiterChanged`, and was left as it is.
 
 ---
 
@@ -54,22 +60,22 @@ From funding onward the contract runs on time and evidence alone.
 **1. `createCampaign`** records the owner, the sponsor, the total, the fee and a
 tranche schedule. No money moves.
 
-**2. `fund`** — the sponsor transfers USDC in, starting a 14-day window to get
+**2. `fund`**: the sponsor transfers USDC in, starting a 14-day window to get
 the placement applied. (`fundOnBehalf` does the same from the auction contract,
 leaving the sponsor recorded as the brand so refunds reach the right address.)
 
-**3. `submitProof(id, 0, hash)`** — the owner evidences the placement. **This is
+**3. `submitProof(id, 0, hash)`**: the owner evidences the placement. **This is
 what starts the campaign clock**, not the payment. An owner who takes ten days
 to get something printed doesn't cost the sponsor ten days of their campaign.
 
-**4. Monthly checkpoints** — each tranche becomes due at
+**4. Monthly checkpoints**: each tranche becomes due at
 `appliedAt + offsetDays`. Fresh proof each time.
 
 **5. `release(id, index)`** pays out a tranche whose seven-day challenge window
 has closed. **Anyone can call it.** An owner's money must not depend on anyone's
 servers being up.
 
-The fee — 8%, capped at 10% — comes out of each tranche as it releases, and only
+The fee (8%, capped at 10%) comes out of each tranche as it releases, and only
 from the portion the owner actually receives.
 
 ### When things go wrong
@@ -79,8 +85,8 @@ from the portion the owner actually receives.
 | Sponsor disputes a proof | `challenge` | sponsor, inside the 7-day window |
 | Arbiter splits a frozen tranche | `resolve` | arbiter |
 | Placement removed early | `terminate` | arbiter |
-| Never applied within 14 days | `reclaimUnapplied` | sponsor — **no arbiter needed** |
-| Owner silent on a checkpoint for 14 days | `reclaimMissedTranche` | sponsor — **no arbiter needed** |
+| Never applied within 14 days | `reclaimUnapplied` | sponsor, **no arbiter needed** |
+| Owner silent on a checkpoint for 14 days | `reclaimMissedTranche` | sponsor, **no arbiter needed** |
 
 A dispute freezes only the tranche it concerns. A disagreement about month three
 does not hold months four through six hostage.
@@ -124,7 +130,7 @@ There is no audit. Rather than assume the code is correct, the code bounds how
 wrong it can be. Raising these means redeploying, which makes it a deliberate
 and visible act. **Do not turn them into admin setters.**
 
-**USDC has 6 decimals** — including on Arc, where the ERC-20 interface is 6 and
+**USDC has 6 decimals**, including on Arc, where the ERC-20 interface is 6 and
 the native interface is 18 for the same balance. These contracts only ever touch
 the ERC-20 interface.
 
@@ -138,9 +144,10 @@ forge test
 
 | Suite | |
 |---|---|
-| `PeelbidEscrow.t.sol` | 39 scenarios |
+| `PeelbidEscrow.t.sol` | 42 scenarios |
 | `EscrowInvariants.t.sol` | 4 invariants |
-| `PeelbidAuction.t.sol` | 52 scenarios |
+| `PeelbidAuction.t.sol` | 53 scenarios |
+| `AuctionCredit.t.sol` | 6 scenarios |
 | `AuctionInvariants.t.sol` | 4 invariants |
 
 Invariant testing drives every action in random order across 256 runs × 64
@@ -151,7 +158,7 @@ equivalents for deposits.
 
 **Two of these found real faults rather than code faults.** A scenario test
 using a twelve-month bid revealed that no such bid could exist under the
-campaign cap at the minimum floor price — the design was wrong, not the test. An
+campaign cap at the minimum floor price: the design was wrong, not the test. An
 invariant found, on its first run, a path where a bidder improved their offer
 while locking a smaller deposit, leaving money the contract held and owed to
 nobody. Both are documented with their reasoning in the design notes.
@@ -169,7 +176,7 @@ forge test
 ```
 
 Requires [Foundry](https://getfoundry.sh). OpenZeppelin v5.7, solc pinned to
-0.8.36, `via_ir = true` — the auction contract will not compile without it.
+0.8.36, `via_ir = true` (the auction contract will not compile without it).
 
 ### Deploying
 
@@ -202,15 +209,15 @@ cast send $ESCROW "setCampaignCreator(address)" $AUCTION \
   --rpc-url $RPC_URL --private-key $KEY
 ```
 
-`campaignCreator` may call `createCampaign` and nothing else — it cannot pause,
+`campaignCreator` may call `createCampaign` and nothing else: it cannot pause,
 change the arbiter, or move money. Revoke by passing the zero address.
 
 ---
 
 ## Status
 
-The contracts are complete and deployed. The auction is running its first cycle
-on Arc testnet and holds no real deposits yet.
+Both contracts are live on Arc mainnet, verified and owned by the Safe. The
+first mainnet auction has not run yet.
 
 There is no audit. Fund accordingly.
 
